@@ -98,3 +98,26 @@ export function shieldCrest(primary, secondary, letter = 'P') {
   stamp(g, tall, 5, 3, '#ffffff')
   return g
 }
+
+// Crest for clubs without hand-made art: a shield in the club colours with an initial.
+// style: 'halves' | 'stripes' | 'hoops' | 'solid' | 'sash'
+export function clubCrest({ primary, secondary, accent = '#ffffff', letter = 'P', style = 'halves' }) {
+  const g = createGrid(16, 16)
+  for (let y = 1; y < 15; y++) {
+    const inset = y < 9 ? 1 : Math.min(7, 1 + Math.floor((y - 8) * 1.2))
+    for (let x = inset; x < 16 - inset; x++) {
+      const edge = x === inset || x === 15 - inset || y === 1 || y === 14
+      let c = primary
+      if (style === 'halves') c = x < 8 ? primary : secondary
+      else if (style === 'stripes') c = Math.floor((x - 1) / 2) % 2 ? secondary : primary
+      else if (style === 'hoops') c = Math.floor((y - 1) / 2) % 2 ? secondary : primary
+      else if (style === 'sash') c = Math.abs(x - (15 - y)) <= 1 ? secondary : primary
+      setPx(g, x, y, edge ? '#111111' : c)
+    }
+  }
+  // A band for the initial so it reads on any pattern.
+  for (let y = 4; y <= 10; y++) for (let x = 5; x <= 10; x++) setPx(g, x, y, secondary === accent ? primary : '#111111')
+  const glyph = LETTERS[letter.toUpperCase()] ?? LETTERS.P
+  stamp(g, glyph.map((row) => [...row].map((c) => c + c).join('')), 5, 5, accent)
+  return g
+}

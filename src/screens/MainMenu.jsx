@@ -33,7 +33,7 @@ export default function MainMenu({ nav }) {
             <br />
             <span style={{ color: 'var(--accent)' }}>MANAGER</span>
           </h1>
-          <div className="sub">LIGA MX · APERTURA 2026 · v0.1</div>
+          <div className="sub">LIGA MX · APERTURA 2026 · v0.3</div>
           <div className="row" style={{ justifyContent: 'center', gap: 4 }}>
             {sprites.map((s) => (
               <PixelCanvas key={s.id} grid={s.grid} scale={4} />
@@ -43,7 +43,7 @@ export default function MainMenu({ nav }) {
         <div className="menu-buttons">
           {career && !career.finished && (
             <button className="btn primary" onClick={() => nav('hub')}>
-              ▶ Continuar · {userTeam?.short} J{career.current + 1}
+              ▶ Continuar · {userTeam?.short} · Fecha {career.matchdayNo}
             </button>
           )}
           <button className={`btn ${career && !career.finished ? '' : 'primary'}`} onClick={() => nav('select')}>
@@ -52,11 +52,17 @@ export default function MainMenu({ nav }) {
           <button className="btn" onClick={() => nav('friendly')}>
             Partido amistoso
           </button>
+          <button className="btn ghost" onClick={() => nav('leagues')}>
+            🏆 Ligas y torneos
+          </button>
           <button className="btn ghost" onClick={() => nav('teams')}>
             Editor de equipos
           </button>
           <button className="btn ghost" onClick={() => nav('studio')}>
             🎨 Estudio Pixel Art
+          </button>
+          <button className="btn ghost" onClick={() => nav('data')}>
+            {'{ }'} Importar / exportar JSON
           </button>
         </div>
         <p className="muted small" style={{ marginTop: 24 }}>

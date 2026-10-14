@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { createRng } from './rng.js'
-import { roundRobin, buildFixtures, createCareer, completeRound, standings, nextUserFixture, applyResult } from './season.js'
+import { roundRobin, createCareer, completeRound, standings, nextUserFixture, applyResult } from './season.js'
+import { createCompetition, currentMatchday, advance, bracketOrder } from './competition.js'
+import { FORMAT_PRESETS, normalizeFormat } from './formats.js'
+import { importData, exportTeam, exportLeague, exportWorld, EXAMPLE_TEAM, EXAMPLE_LEAGUE } from './io.js'
 import { autoLineup, resolveLineup, pickKits } from './team.js'
 import { FORMATIONS, FORMATION_KEYS } from './formations.js'
 import { simulateMatch, createMatch, step, setTactics, substitute } from './engine/match.js'
@@ -42,11 +45,8 @@ describe('fixtures', () => {
     expect(rounds.every((r) => r.length === 1)).toBe(true)
   })
 
-  it('two teams get a 6-match series alternating home and away', () => {
-    const rounds = buildFixtures(['caz', 'ame'])
-    expect(rounds).toHaveLength(6)
-    const homes = rounds.map((r) => r[0].home)
-    expect(homes.filter((h) => h === 'caz')).toHaveLength(3)
+  it('bracket order keeps the top seeds apart', () => {
+    expect(bracketOrder(8)).toEqual([1, 8, 4, 5, 2, 7, 3, 6])
   })
 })
 
@@ -131,25 +131,108 @@ describe('match engine', () => {
 })
 
 describe('season', () => {
-  it('plays a whole season and updates the table and player stats', () => {
+  it('plays a whole Liga MX Apertura with Liguilla', () => {
     const w = createWorld()
-    w.career = createCareer(w, 'cruz-azul')
+    expect(w.teams.length).toBe(18)
+    w.career = createCareer(w, 'liga-mx-a26', 'cruz-azul')
     let guard = 0
-    while (!w.career.finished && guard++ < 20) {
+    while (!w.career.finished && guard++ < 40) {
       const fx = nextUserFixture(w.career)
-      const h = w.teams.find((t) => t.id === fx.home)
-      const a = w.teams.find((t) => t.id === fx.away)
-      applyResult(w, w.career, fx, simulateMatch(h, a, fx.id).result)
+      if (fx) {
+        const h = w.teams.find((t) => t.id === fx.home)
+        const a = w.teams.find((t) => t.id === fx.away)
+        applyResult(w, w.career, fx, simulateMatch(h, a, fx.id).result)
+      }
       completeRound(w, w.career)
     }
     expect(w.career.finished).toBe(true)
+    expect(w.career.competition.champion).toBeTruthy()
     const table = standings(w, w.career)
-    expect(table[0].p).toBe(6)
-    const apps = w.teams[0].players.reduce((n, p) => n + p.stats.apps, 0)
-    expect(apps).toBeGreaterThanOrEqual(66)
-    const goals = table.reduce((n, r) => n + r.gf, 0)
-    const scored = w.teams.flatMap((t) => t.players).reduce((n, p) => n + p.stats.goals, 0)
-    expect(scored).toBeLessThanOrEqual(goals)
+    expect(table).toHaveLength(18)
+    expect(table.every((r) => r.p === 17)).toBe(true)
+    const ko = w.career.competition.stages[1]
+    expect(ko.ko.rounds.map((r) => r.ties.length)).toEqual([4, 2, 1])
+    // Liguilla pairs 1 vs 8 in the quarter-finals.
+    const order = ko.ko.seeds
+    expect(ko.ko.rounds[0].ties.some((t) => t.a === order[0] && t.b === order[7])).toBe(true)
+  }, 60000)
+})
+
+describe('competition formats', () => {
+  const run = (key, n) => {
+    const { format, errors } = normalizeFormat(FORMAT_PRESETS[key])
+    expect(errors).toEqual([])
+    const ids = Array.from({ length: n }, (_, i) => `T${i + 1}`)
+    const comp = createCompetition(format, ids, key)
+    const rng = createRng(key)
+    const getTeam = (id) => ({ id, name: id, players: [{ attrs: { finishing: 12, goalkeeping: 12 }, roles: ['GK'] }] })
+    let matchdays = 0
+    while (!comp.finished && matchdays < 300) {
+      for (const f of currentMatchday(comp)) f.result = { score: [rng.int(0, 3), rng.int(0, 3)] }
+      advance(comp, getTeam)
+      matchdays++
+    }
+    expect(comp.champion).toBeTruthy()
+    return { comp, matchdays }
+  }
+  it('Liga MX: 17 matchdays + 3 two-legged knockout rounds', () => expect(run('liga-mx', 18).matchdays).toBe(23))
+  it('Premier League: 38 matchdays', () => expect(run('premier-league', 20).matchdays).toBe(38))
+  it('Scotland: 33 + 5 after the split', () => expect(run('scotland', 12).matchdays).toBe(38))
+  it('Champions League: 8 league-phase games, then knockouts with byes for the top 8', () => {
+    const { comp } = run('champions-league', 36)
+    expect(comp.stages[1].ko.rounds[0].ties).toHaveLength(8)
+  })
+  it('every preset finishes with odd team counts too', () => {
+    for (const key of Object.keys(FORMAT_PRESETS)) run(key, 13)
+  })
+  it('reports errors in a broken format', () => {
+    const { errors } = normalizeFormat({ stages: [{ type: 'knockout', ties: 'triple' }], tiebreakers: ['luck'] })
+    expect(errors.length).toBe(2)
+  })
+})
+
+describe('json import / export', () => {
+  it('imports the example team and fills the squad', () => {
+    const w = createWorld()
+    const r = importData(w, JSON.stringify(EXAMPLE_TEAM))
+    expect(r.errors).toEqual([])
+    const t = w.teams.find((x) => x.id === 'pixel-fc')
+    expect(t.players.length).toBeGreaterThanOrEqual(16)
+    expect(t.players.find((p) => p.name === 'El Diez').roles).toEqual(['AM'])
+    expect(t.crest.w).toBe(8)
+  })
+
+  it('imports a league referencing teams by id, name or short name', () => {
+    const w = createWorld()
+    importData(w, EXAMPLE_TEAM)
+    const r = importData(w, EXAMPLE_LEAGUE)
+    expect(r.errors).toEqual([])
+    const l = w.leagues.find((x) => x.name === 'Mi Superliga')
+    expect(l.teamIds).toEqual(['america', 'cruz-azul', 'toluca', 'tigres', 'pixel-fc'])
+  })
+
+  it('round-trips teams, leagues and the whole world', () => {
+    const w = createWorld()
+    const caz = w.teams.find((t) => t.id === 'cruz-azul')
+    const w2 = createWorld()
+    w2.teams = w2.teams.filter((t) => t.id !== 'cruz-azul')
+    importData(w2, JSON.parse(JSON.stringify(exportTeam(caz))))
+    const back = w2.teams.find((t) => t.id === 'cruz-azul')
+    expect(back.players.map((p) => p.name)).toEqual(caz.players.map((p) => p.name))
+    expect(back.players[0].appearance).toEqual(caz.players[0].appearance)
+    const w3 = { teams: [], leagues: [] }
+    const r = importData(w3, JSON.stringify(exportWorld(w)))
+    expect(r.errors).toEqual([])
+    expect(w3.teams).toHaveLength(18)
+    expect(w3.leagues.map((l) => l.id)).toEqual(w.leagues.map((l) => l.id))
+    const lr = importData(createWorld(), exportLeague(w, w.leagues[0]))
+    expect(lr.errors).toEqual([])
+  })
+
+  it('explains what is wrong', () => {
+    const r = importData(createWorld(), { type: 'pfm-team', team: { players: [{ number: 5 }] } })
+    expect(r.errors[0]).toMatch(/falta "name"/)
+    expect(importData(createWorld(), '{oops').errors[0]).toMatch(/JSON inválido/)
   })
 })
 
@@ -217,5 +300,13 @@ describe('tactical roles', () => {
       return sum / n
     }
     expect(avgX('FB_WB')).toBeGreaterThan(avgX('FB_DEF') + 3)
+  })
+})
+
+describe('json report', () => {
+  it('keeps info messages as a list', () => {
+    const r = importData(createWorld(), { type: 'pfm-team', team: { name: 'Sin Jugadores' } })
+    expect(Array.isArray(r.info)).toBe(true)
+    expect(r.info[0]).toMatch(/se generó una plantilla/)
   })
 })

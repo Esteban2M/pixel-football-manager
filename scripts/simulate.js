@@ -5,6 +5,7 @@ import { simulateMatch } from '../src/game/engine/match.js'
 
 const n = Number(process.argv[2] ?? 100)
 const [caz, ame] = createBaseTeams()
+
 const totals = { goals: 0, shots: 0, onTarget: 0, xg: 0, passes: 0, passesOk: 0, corners: 0, fouls: 0, yellows: 0, reds: 0, offsides: 0, saves: 0, tackles: 0 }
 const wins = [0, 0, 0]
 const scores = {}

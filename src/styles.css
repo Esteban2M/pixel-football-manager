@@ -838,3 +838,105 @@ table.data th.num {
 .pitch-wrap {
   box-shadow: 0 0 0 2px #000, 0 0 24px rgba(79, 184, 61, 0.35);
 }
+
+/* ---------- leagues ---------- */
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.team-grid.small-grid {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.team-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 2px solid #000;
+  background: var(--panel2);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  flex-wrap: wrap;
+}
+
+.team-pick span:first-of-type {
+  flex: 1;
+  min-width: 0;
+}
+
+.team-pick.on {
+  background: var(--accent);
+  color: #000;
+}
+
+textarea.json {
+  width: 100%;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 12px;
+  background: #0b0d24;
+  color: #c9f7c3;
+  border: 2px solid #000;
+  padding: 8px;
+  resize: vertical;
+}
+
+code {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 1px 4px;
+}
+
+.bracket {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.bracket-round {
+  min-width: 170px;
+  display: grid;
+  gap: 8px;
+  align-content: center;
+}
+
+.tie {
+  border: 2px solid #000;
+  background: var(--bg2);
+  padding: 4px;
+}
+
+.tie-team {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  font-size: 14px;
+}
+
+.tie-team.win {
+  background: rgba(0, 228, 54, 0.18);
+  font-weight: 700;
+}
+
+.tie-team.lose {
+  opacity: 0.5;
+}
+
+.tie-team.mine {
+  outline: 2px solid var(--accent);
+}
+
+.panel.champion {
+  background: linear-gradient(135deg, #7a5c00, #2a2f7a 70%);
+}

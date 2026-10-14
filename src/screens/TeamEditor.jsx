@@ -8,6 +8,7 @@ import SquadTable from '../components/SquadTable.jsx'
 import { randomPlayer, generateSquad } from '../game/generate.js'
 import { ROLES, ROLE_KEYS } from '../game/player.js'
 import { createBaseTeams } from '../data/teams.js'
+import { exportTeam, downloadJson, slugify } from '../game/io.js'
 
 function KitEditor({ kit, onChange, label }) {
   const set = (patch) => onChange({ ...kit, ...patch })
@@ -81,7 +82,9 @@ export default function TeamEditor({ nav, params }) {
   const deleteTeam = () => {
     update((w) => {
       w.teams = w.teams.filter((t) => t.id !== team.id)
-      if (w.career && (w.career.userTeamId === team.id || w.career.rounds.some((r) => r.some((m) => m.home === team.id || m.away === team.id)))) w.career = null
+      for (const l of w.leagues ?? []) l.teamIds = l.teamIds.filter((id) => id !== team.id)
+      w.leagues = (w.leagues ?? []).filter((l) => l.teamIds.length >= 2)
+      if (w.career && w.career.competition?.teamIds.includes(team.id)) w.career = null
     })
     nav('teams')
   }
@@ -101,6 +104,9 @@ export default function TeamEditor({ nav, params }) {
         </button>
         <Crest team={team} size={32} />
         <span className="title">{team.name}</span>
+        <button className="btn ghost sm" onClick={() => downloadJson(exportTeam(team), `${slugify(team.name)}.team.json`)}>
+          Exportar JSON
+        </button>
       </div>
 
       <div className="grid cols-main">

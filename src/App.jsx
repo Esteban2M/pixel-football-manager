@@ -10,6 +10,8 @@ import Hub from './screens/Hub.jsx'
 import TeamsScreen from './screens/TeamsScreen.jsx'
 import TeamEditor from './screens/TeamEditor.jsx'
 import PixelStudio from './screens/PixelStudio.jsx'
+import LeaguesScreen, { LeagueEditor } from './screens/LeaguesScreen.jsx'
+import DataScreen from './screens/DataScreen.jsx'
 
 function MatchRoute({ params, nav }) {
   const { world, update } = useWorld()
@@ -36,7 +38,7 @@ function MatchRoute({ params, nav }) {
     [params.mode, update, nav],
   )
   if (!home || !away) return null
-  const title = params.mode === 'career' ? `${world.career?.name} · Jornada ${(world.career?.current ?? 0) + 1}` : 'Partido amistoso'
+  const title = params.mode === 'career' ? `${world.career?.name} · Fecha ${world.career?.matchdayNo ?? 1}` : 'Partido amistoso'
   return <MatchScreen key={params.seed} home={home} away={away} userSide={params.userSide} seed={params.seed} title={title} onFinish={onFinish} />
 }
 
@@ -64,6 +66,12 @@ export default function App() {
       return <TeamEditor nav={nav} params={params} />
     case 'studio':
       return <PixelStudio nav={nav} />
+    case 'leagues':
+      return <LeaguesScreen nav={nav} />
+    case 'leagueEdit':
+      return <LeagueEditor nav={nav} params={params} />
+    case 'data':
+      return <DataScreen nav={nav} />
     default:
       return <MainMenu nav={nav} />
   }
