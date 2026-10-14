@@ -3,7 +3,8 @@
 import { createRng } from '../rng.js'
 import { FORMATIONS } from '../formations.js'
 import { familiarity, ratingInSlot } from '../player.js'
-import { resolveLineup, benchFor, pickKits } from '../team.js'
+import { resolveLineup, resolveRoles, benchFor, pickKits } from '../team.js'
+import { getRole, validRole } from '../roles.js'
 import {
   W, H, CY, GOAL_TOP, GOAL_BOT, CROSSBAR, PEN_SPOT, clamp, dist, dist2, len, attackDir, toWorld, toTeam,
   oppGoal, ownGoal, inOwnBox, inOppBox, goalAngle,
@@ -36,6 +37,10 @@ function makeAgent(player, team, slot, role) {
     attrs: player.attrs,
     isGK: role === 'GK',
     fam: familiarity(player, role),
+    height: player.height ?? 178,
+    trKey: validRole(null, role),
+    tr: getRole(validRole(null, role)),
+    roleFit: 1,
     morale: player.morale ?? 0,
     energy: player.condition ?? 100,
     form: 1,
@@ -70,8 +75,20 @@ function makeAgent(player, team, slot, role) {
   return a
 }
 
+// Sets each agent's tactical role from the team's role sheet (one role per formation slot).
+function applyRoles(T) {
+  for (const a of T.agents) applyRole(T, a)
+}
+
+function applyRole(T, a) {
+  a.trKey = validRole(T.roles[a.slot], a.role)
+  a.tr = getRole(a.trKey)
+  // Playing his favourite role gives a small boost.
+  a.roleFit = a.data.prefRole === a.trKey ? 1.03 : 1
+}
+
 function updateForm(a) {
-  a.form = (0.7 + 0.3 * a.fam) * (1 + a.morale * 0.02) * (0.82 + 0.18 * (a.energy / 100))
+  a.form = (0.7 + 0.3 * a.fam) * (1 + a.morale * 0.02) * (0.82 + 0.18 * (a.energy / 100)) * a.roleFit
 }
 
 export function createMatch({ home, away, seed = Date.now(), userSide = null, autoSubs = [true, true] }) {
@@ -110,16 +127,19 @@ export function createMatch({ home, away, seed = Date.now(), userSide = null, au
       const p = team.players.find((pl) => pl.id === id)
       if (p) agents.push(makeAgent(p, t, i, slots[i].role))
     })
-    s.teams.push({
+    const T = {
       def: team,
       tactics: { ...team.tactics },
       slots,
+      roles: resolveRoles(team),
       agents,
       bench: benchFor(team, lineup),
       subsLeft: MAX_SUBS,
       used: [],
       kit: kits[t],
-    })
+    }
+    applyRoles(T)
+    s.teams.push(T)
   })
   refreshAgents(s)
   setupKickoff(s, 0, true)
@@ -535,6 +555,7 @@ function sendOff(s, a, type) {
       stand.role = 'GK'
       stand.isGK = true
       stand.fam = familiarity(stand.data, 'GK')
+      applyRole(T, stand)
     }
   }
   refreshAgents(s)
@@ -573,6 +594,7 @@ export function substitute(s, t, outId, inId) {
   const pl = T.def.players.find((p) => p.id === inId)
   if (!out || !pl || !T.bench.includes(inId)) return false
   const a = makeAgent(pl, t, out.slot, out.role)
+  applyRole(T, a)
   a.x = a.px = W / 2 + (t === 0 ? -3 : 3)
   a.y = a.py = -0.5
   a.enteredAt = minuteOf(s)
@@ -594,6 +616,7 @@ export function setTactics(s, t, tactics) {
   T.tactics = { ...T.tactics, ...tactics }
   if (changed) {
     T.slots = FORMATIONS[T.tactics.formation]
+    if (!tactics.roles) T.tactics.roles = null
     // Re-assign the players on the pitch to the new slots (keeper stays in goal).
     const free = T.agents.slice()
     const assign = new Array(T.slots.length).fill(null)
@@ -617,6 +640,18 @@ export function setTactics(s, t, tactics) {
       a.fam = familiarity(a.data, a.role)
     })
   }
+  if (changed || tactics.roles) {
+    T.roles = resolveRoles({ tactics: T.tactics })
+    applyRoles(T)
+  }
+}
+
+// Changes the role of one slot during the match.
+export function setSlotRole(s, t, slot, roleKey) {
+  const T = s.teams[t]
+  const roles = T.roles.slice()
+  roles[slot] = roleKey
+  setTactics(s, t, { roles })
 }
 
 function scoreGoal(s, t) {
@@ -713,7 +748,7 @@ function trySave(s, gk) {
   const reach = 0.9 + gk.attrs.goalkeeping * 0.05 + 0.35
   const stretch = clamp(dist(gk, b) / reach, 0, 1)
   let pSave = clamp(
-    0.46 + attr(gk, 'goalkeeping') * 0.03 + attr(gk, 'positioning') * 0.006 - (speed - 24) * 0.03 - stretch * 0.3,
+    0.5 + attr(gk, 'goalkeeping') * 0.03 + attr(gk, 'positioning') * 0.006 - (speed - 24) * 0.03 - stretch * 0.3,
     0.08,
     0.92,
   )
@@ -792,7 +827,7 @@ function handleLooseBall(s) {
     // Airborne ball: headers in the box.
     if (b.z > 0.9 && !gkZone) {
       if (inOppBox(s, a.team, b.x, b.y)) {
-        if (rng.chance(clamp(0.45 + (attr(a, 'strength') - 10) * 0.03, 0.2, 0.8))) {
+        if (rng.chance(clamp(0.45 + (attr(a, 'strength') - 10) * 0.03 + (a.height - 180) * 0.012 + a.tr.aerial, 0.15, 0.88))) {
           b.lastTouch = a
           a.touchTry = 0.3
           const g = oppGoal(s, a.team)
@@ -805,7 +840,7 @@ function handleLooseBall(s) {
           continue
         }
       } else if (inOwnBox(s, a.team, b.x, b.y)) {
-        if (rng.chance(clamp(0.5 + (attr(a, 'strength') - 10) * 0.03, 0.25, 0.85))) {
+        if (rng.chance(clamp(0.5 + (attr(a, 'strength') - 10) * 0.03 + (a.height - 180) * 0.012 + a.tr.aerial, 0.2, 0.9))) {
           b.lastTouch = a
           if (rng.chance(0.3)) {
             // Glancing header behind the goal line.
@@ -879,7 +914,7 @@ function handleTackles(s, ctx) {
     const dd = dist(d, c)
     if (dd > 1.7) continue
     const presser = ctx.plans.get(d)?.urg >= 1
-    const rate = presser ? 2.2 + T.tactics.pressing * 0.6 : 1.0
+    const rate = (presser ? 2.2 + T.tactics.pressing * 0.6 : 1.0) * Math.sqrt(d.tr.press)
     if (!rng.chance(rate * DT)) continue
     d.cooldown = 0.7
     const tk = attr(d, 'tackling')
@@ -949,7 +984,7 @@ function moveAgent(a, tx, ty, urg, dt) {
   a.anim += sp * dt
   const full = maxSpeed(a) || 1
   const frac = Math.min(1, sp / full)
-  a.energy = Math.max(5, a.energy - dt * (0.02 + frac * frac * 0.1) * (1.35 - a.attrs.stamina * 0.0175))
+  a.energy = Math.max(5, a.energy - dt * (0.02 + frac * frac * 0.1) * (1.35 - a.attrs.stamina * 0.0175) * a.tr.work)
 }
 
 // Keepers launch themselves at full speed instead of accelerating like a runner.
@@ -1070,7 +1105,7 @@ function findChasers(s) {
         const last = traj[traj.length - 1]
         hit = { t: 3 + dist2(a.x, a.y, last.x, last.y) / sp, x: last.x, y: last.y }
       }
-      if (a.isGK && !inOwnBox(s, t, hit.x, hit.y)) continue
+      if (a.isGK && !inOwnBox(s, t, hit.x, hit.y) && !(a.tr.sweeper && dist2(hit.x, hit.y, ownGoal(s, t).x, CY) < 26)) continue
       let tt = hit.t
       if (a.receiving > 0) tt -= 0.6
       if (tt < bt) {

@@ -1,4 +1,5 @@
 import { ROLES, overall } from '../game/player.js'
+import { getRole } from '../game/roles.js'
 import { Portrait, Ovr, Bar, MoraleIcon } from './Pixel.jsx'
 
 const ORDER = ['GK', 'CB', 'LB', 'RB', 'DM', 'CM', 'AM', 'LW', 'RW', 'ST']
@@ -17,6 +18,8 @@ export default function SquadTable({ team, onSelect }) {
             <th>Pos</th>
             <th>Nac</th>
             <th className="num">Edad</th>
+            <th className="num">Alt.</th>
+            <th>Rol pref.</th>
             <th className="num">Med</th>
             <th>Condición</th>
             <th>Moral</th>
@@ -46,6 +49,8 @@ export default function SquadTable({ team, onSelect }) {
               </td>
               <td className="small">{p.nationality}</td>
               <td className="num">{p.age}</td>
+              <td className="num small">{p.height ? (p.height / 100).toFixed(2) : '—'}</td>
+              <td className="small">{p.prefRole ? getRole(p.prefRole).name : '—'}</td>
               <td className="num">
                 <Ovr value={overall(p)} />
               </td>

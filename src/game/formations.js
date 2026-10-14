@@ -67,7 +67,7 @@ export const FORMATIONS = {
     { role: 'CB', label: 'DFC', x: 0.16, y: 0.7 },
     { role: 'RB', label: 'CRD', x: 0.24, y: 0.9 },
     { role: 'CM', label: 'MC', x: 0.37, y: 0.3 },
-    { role: 'CM', label: 'MC', x: 0.34, y: 0.5 },
+    { role: 'DM', label: 'MCD', x: 0.33, y: 0.5 },
     { role: 'CM', label: 'MC', x: 0.37, y: 0.7 },
     { role: 'ST', label: 'DC', x: 0.55, y: 0.4 },
     { role: 'ST', label: 'DC', x: 0.55, y: 0.6 },
@@ -88,3 +88,12 @@ export const MENTALITY_LABELS = { '-2': 'Muy defensiva', '-1': 'Defensiva', 0: '
 export const PRESSING_LABELS = ['Baja', 'Media', 'Alta']
 export const TEMPO_LABELS = ['Lento', 'Normal', 'Rápido']
 export const WIDTH_LABELS = ['Estrecho', 'Normal', 'Amplio']
+
+// Default tactical role for each slot of every formation (see roles.js).
+export const FORMATION_ROLES = {
+  '4-4-2': ['GK_STD', 'FB_STD', 'CB_BPD', 'CB_STD', 'FB_STD', 'W_WINGER', 'CM_B2B', 'CM_PLAYMAKER', 'W_WINGER', 'ST_TARGET', 'ST_POACHER'],
+  '4-3-3': ['GK_STD', 'FB_STD', 'CB_BPD', 'CB_STD', 'FB_STD', 'CM_MEZZALA', 'DM_ANCHOR', 'CM_B2B', 'W_INSIDE', 'ST_ADV', 'W_INSIDE'],
+  '4-2-3-1': ['GK_STD', 'FB_STD', 'CB_BPD', 'CB_STD', 'FB_STD', 'DM_WINNER', 'DM_REGISTA', 'W_INSIDE', 'AM_ENGANCHE', 'W_WINGER', 'ST_ADV'],
+  '3-5-2': ['GK_STD', 'CB_STD', 'CB_COVER', 'CB_BPD', 'FB_WB', 'CM_B2B', 'DM_REGISTA', 'CM_MEZZALA', 'FB_WB', 'ST_TARGET', 'ST_POACHER'],
+  '5-3-2': ['GK_STD', 'FB_WB', 'CB_STD', 'CB_COVER', 'CB_STD', 'FB_WB', 'CM_B2B', 'DM_ANCHOR', 'CM_PLAYMAKER', 'ST_ADV', 'ST_PRESS'],
+}

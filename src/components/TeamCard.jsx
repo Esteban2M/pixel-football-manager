@@ -1,5 +1,6 @@
 import { teamStrength } from '../game/team.js'
 import { Crest, Ovr, PitchSpritePreview } from './Pixel.jsx'
+import { bodyOf } from '../pixel/sprites.js'
 
 export default function TeamCard({ team, selected, onClick, children }) {
   return (
@@ -16,7 +17,7 @@ export default function TeamCard({ team, selected, onClick, children }) {
         <span className="chip">{team.players.length} jugadores</span>
       </div>
       <div className="small muted">DT: {team.coach}</div>
-      <PitchSpritePreview appearance={team.players[4]?.appearance ?? team.players[0].appearance} kit={team.kits.home} scale={4} />
+      <PitchSpritePreview appearance={(team.players[4] ?? team.players[0]).appearance} kit={team.kits.home} scale={4} body={bodyOf(team.players[4] ?? team.players[0])} />
       {children}
     </div>
   )

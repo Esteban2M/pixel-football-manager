@@ -20,7 +20,7 @@ export const HAIR_COLORS = [
   { name: 'Teñido azul', base: '#3d6fd6', shade: '#2a4b98' },
 ]
 
-export const HAIR_STYLES = ['Rapado', 'Corto', 'Peinado', 'Rizado', 'Afro', 'Largo', 'Cresta', 'Picos', 'Calvo']
+export const HAIR_STYLES = ['Rapado', 'Corto', 'Peinado', 'Rizado', 'Afro', 'Largo', 'Cresta', 'Picos', 'Calvo', 'Moño']
 export const BEARD_STYLES = ['Sin barba', 'Barba corta', 'Bigote', 'Barba completa', 'Candado']
 
 // Editor palette: PICO-8 style base plus football-friendly extras.

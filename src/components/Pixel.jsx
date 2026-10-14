@@ -42,13 +42,13 @@ export function Portrait({ player, team, size = 32 }) {
   return <PixelCanvas grid={grid} scale={Math.max(1, Math.round(size / grid.w))} title={player.name} />
 }
 
-export function PitchSpritePreview({ appearance, kit, gk = false, scale = 6 }) {
+export function PitchSpritePreview({ appearance, kit, gk = false, scale = 6, body }) {
   const grids = useMemo(
-    () => [0, 1].map((frame) => pitchSprite(appearance, kit, { frame, gk })).concat([pitchSprite(appearance, kit, { back: true, gk })]),
-    [appearance, kit, gk],
+    () => [0, 1].map((frame) => pitchSprite(appearance, kit, { frame, gk, body })).concat([pitchSprite(appearance, kit, { back: true, gk, body })]),
+    [appearance, kit, gk, body],
   )
   return (
-    <div className="row" style={{ gap: 6 }}>
+    <div className="row" style={{ gap: 6, alignItems: 'end' }}>
       {grids.map((g, i) => (
         <PixelCanvas key={i} grid={g} scale={scale} />
       ))}

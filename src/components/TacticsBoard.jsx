@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { FORMATIONS, FORMATION_KEYS, MENTALITY_LABELS, PRESSING_LABELS, TEMPO_LABELS, WIDTH_LABELS } from '../game/formations.js'
-import { autoLineup, isAvailable, reassignLineup, resolveLineup, teamStrength } from '../game/team.js'
+import { autoLineup, autoRoles, isAvailable, reassignLineup, resolveLineup, resolveRoles, teamStrength } from '../game/team.js'
 import { ROLES, overall, ratingInSlot } from '../game/player.js'
+import { getRole } from '../game/roles.js'
 import { Portrait, Ovr, Bar } from './Pixel.jsx'
+import RolePicker, { RoleGuide } from './RolePicker.jsx'
 
 // Maps a formation slot (x: own goal -> opponent goal) onto a vertical board.
 export function slotStyle(slot) {
@@ -51,7 +53,14 @@ export function FormationPicker({ value, onChange }) {
 
 export default function TacticsBoard({ team, onChange }) {
   const [sel, setSel] = useState(null)
+  const [guide, setGuide] = useState(false)
   const lineup = resolveLineup(team)
+  const roles = resolveRoles(team)
+  const setRole = (i, key) => {
+    const next = roles.slice()
+    next[i] = key
+    onChange({ tactics: { ...team.tactics, roles: next } })
+  }
   const slots = FORMATIONS[team.tactics.formation]
   const byId = (id) => team.players.find((p) => p.id === id)
 
@@ -85,7 +94,7 @@ export default function TacticsBoard({ team, onChange }) {
   }
 
   const setFormation = (f) => {
-    onChange({ tactics: { ...team.tactics, formation: f }, lineup: reassignLineup(team, lineup, f) })
+    onChange({ tactics: { ...team.tactics, formation: f, roles: null }, lineup: reassignLineup(team, lineup, f) })
     setSel(null)
   }
 
@@ -121,14 +130,30 @@ export default function TacticsBoard({ team, onChange }) {
                 <span className="tag">
                   <b>{slot.label}</b> {p ? p.short : '—'}
                 </span>
+                <span className="tag role-tag">{getRole(roles[i]).name}</span>
                 {p && <Bar value={p.condition} />}
               </div>
             )
           })}
         </div>
         <p className="muted small" style={{ margin: 0 }}>
-          Toca una posición y luego otra posición o un jugador de la lista para intercambiarlos.
+          Toca una posición para elegir su <b>rol</b>; después toca otra posición o un jugador de la lista para intercambiarlos.
         </p>
+        {sel?.kind === 'slot' ? (
+          <div className="panel" style={{ background: 'var(--bg2)' }}>
+            <RolePicker slot={slots[sel.i]} value={roles[sel.i]} player={byId(lineup[sel.i])} onChange={(k) => setRole(sel.i, k)} />
+          </div>
+        ) : (
+          <div className="row">
+            <button className="btn ghost sm" onClick={() => onChange({ tactics: { ...team.tactics, roles: autoRoles(team, lineup) } })}>
+              ★ Roles según preferencias
+            </button>
+            <button className="btn ghost sm" onClick={() => setGuide(true)}>
+              📖 Guía de roles
+            </button>
+          </div>
+        )}
+        {guide && <RoleGuide onClose={() => setGuide(false)} />}
         <div>
           <h3>Instrucciones de equipo</h3>
           <TacticSliders tactics={team.tactics} onChange={(t) => onChange({ tactics: t })} />

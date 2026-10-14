@@ -67,6 +67,70 @@ const AMERICA_ROWS = [
   [11, 'Víctor Dávila', 'Dávila', 'CHI', 29, ['RW', 'ST'], '14 14 11 12 14 14 6 13 1'],
 ]
 
+
+// Physical profile: height in cm (ESPN squad pages, Sept/Oct 2026; a few marked ~ are estimates),
+// look = [skin 0-5, hair style, hair colour, beard] (see pixel/palette.js), preferred tactical role.
+// Looks are approximations of each player's real appearance; refine them in the Pixel Art Studio.
+const PHYSICAL = {
+  // Cruz Azul
+  'cruz-azul-23': [188, [3, 1, 0, 1], 'GK_SWEEP'],
+  'cruz-azul-1': [183, [1, 1, 1, 3], 'GK_STD'],
+  'cruz-azul-30': [188, [1, 1, 0, 0], 'GK_STD'],
+  'cruz-azul-4': [180, [5, 0, 0, 1], 'CB_STD'],
+  'cruz-azul-33': [180, [0, 9, 1, 3], 'CB_BPD'],
+  'cruz-azul-5': [188, [2, 1, 0, 0], 'CB_BPD'],
+  'cruz-azul-12': [191, [2, 1, 0, 1], 'CB_STD'],
+  'cruz-azul-28': [183, [2, 1, 0, 0], 'CB_COVER'],
+  'cruz-azul-3': [175, [2, 3, 0, 0], 'FB_WB'],
+  'cruz-azul-22': [178, [2, 1, 0, 0], 'FB_STD'], // ~
+  'cruz-azul-6': [173, [2, 2, 0, 1], 'DM_ANCHOR'],
+  'cruz-azul-19': [170, [2, 1, 0, 3], 'CM_PLAYMAKER'],
+  'cruz-azul-16': [178, [2, 1, 0, 1], 'CM_B2B'],
+  'cruz-azul-8': [178, [1, 1, 1, 3], 'CM_MEZZALA'],
+  'cruz-azul-20': [180, [1, 2, 1, 3], 'AM_ENGANCHE'],
+  'cruz-azul-18': [165, [1, 2, 1, 0], 'AM_ENGANCHE'],
+  'cruz-azul-10': [175, [2, 1, 0, 0], 'W_INSIDE'],
+  'cruz-azul-17': [180, [3, 3, 0, 0], 'W_WINGER'],
+  'cruz-azul-29': [183, [0, 9, 2, 3], 'FB_WB'],
+  'cruz-azul-25': [175, [2, 1, 0, 0], 'CM_B2B'], // ~
+  'cruz-azul-32': [173, [2, 1, 0, 0], 'CM_MEZZALA'], // ~
+  'cruz-azul-7': [180, [0, 1, 1, 3], 'ST_POACHER'],
+  'cruz-azul-11': [178, [5, 0, 0, 1], 'ST_ADV'],
+  'cruz-azul-14': [185, [4, 1, 0, 0], 'ST_TARGET'],
+  'cruz-azul-21': [185, [0, 1, 2, 3], 'ST_TARGET'],
+  'cruz-azul-27': [178, [2, 1, 0, 0], 'ST_PRESS'], // ~
+  // América
+  'america-30': [183, [1, 0, 0, 1], 'GK_STD'],
+  'america-1': [180, [2, 1, 0, 1], 'GK_SWEEP'],
+  'america-21': [185, [2, 1, 0, 0], 'GK_STD'],
+  'america-3': [178, [2, 1, 0, 1], 'CB_BPD'],
+  'america-4': [180, [1, 1, 1, 3], 'CB_STD'],
+  'america-14': [191, [0, 1, 2, 3], 'CB_STD'],
+  'america-15': [185, [0, 2, 2, 1], 'CB_BPD'],
+  'america-24': [175, [1, 1, 1, 0], 'CB_COVER'],
+  'america-29': [173, [2, 1, 0, 0], 'CB_COVER'],
+  'america-32': [183, [2, 1, 0, 0], 'CB_STD'], // ~
+  'america-5': [175, [2, 1, 0, 1], 'FB_WB'],
+  'america-2': [180, [2, 1, 0, 0], 'FB_STD'],
+  'america-26': [178, [5, 0, 0, 4], 'FB_STD'],
+  'america-6': [175, [2, 1, 1, 0], 'DM_ANCHOR'],
+  'america-13': [178, [2, 1, 0, 1], 'DM_WINNER'],
+  'america-20': [180, [2, 2, 0, 0], 'CM_B2B'],
+  'america-28': [168, [2, 7, 0, 1], 'CM_MEZZALA'],
+  'america-27': [180, [3, 1, 0, 0], 'CM_B2B'], // ~
+  'america-23': [178, [2, 1, 0, 3], 'AM_ENGANCHE'],
+  'america-8': [168, [0, 2, 1, 1], 'AM_SHADOW'],
+  'america-10': [168, [1, 2, 1, 1], 'W_INSIDE'],
+  'america-12': [173, [2, 1, 0, 0], 'W_INSIDE'],
+  'america-34': [175, [3, 1, 0, 0], 'FB_WB'], // ~
+  'america-7': [175, [1, 1, 1, 1], 'W_WINGER'],
+  'america-22': [175, [5, 1, 0, 0], 'W_WINGER'],
+  'america-9': [178, [3, 0, 0, 3], 'ST_TARGET'],
+  'america-93': [183, [3, 1, 0, 1], 'ST_POACHER'],
+  'america-19': [180, [4, 1, 0, 0], 'ST_ADV'],
+  'america-11': [173, [2, 1, 0, 1], 'W_INSIDE'],
+}
+
 const INJURIES = {
   'america-1': { injury: 8, injuryNote: 'Rotura del tendón de Aquiles' },
   'america-11': { injury: 10, injuryNote: 'Rotura de ligamento cruzado' },
@@ -79,7 +143,9 @@ function rowsToPlayers(teamId, rows) {
     const values = attrStr.split(' ').map(Number)
     const attrs = Object.fromEntries(ATTR_ORDER.map((k, i) => [k, values[i]]))
     const id = `${teamId}-${number}`
-    return makePlayer({ id, number, name, short, nationality, age, roles, attrs, ...INJURIES[id] })
+    const [height, look, prefRole] = PHYSICAL[id] ?? [178, null, null]
+    const appearance = look ? { skin: look[0], hair: look[1], hairColor: look[2], beard: look[3] } : undefined
+    return makePlayer({ id, number, name, short, nationality, age, roles, attrs, height, prefRole, appearance, ...INJURIES[id] })
   })
 }
 
@@ -98,7 +164,14 @@ export function createBaseTeams() {
         gk: '#3d3d3d',
       },
       crest: cruzAzulCrest(),
-      tactics: { ...DEFAULT_TACTICS, formation: '4-3-3', mentality: 1, pressing: 1, tempo: 1 },
+      tactics: {
+        ...DEFAULT_TACTICS,
+        formation: '4-3-3',
+        mentality: 1,
+        pressing: 1,
+        tempo: 1,
+        roles: ['GK_SWEEP', 'FB_WB', 'CB_BPD', 'CB_STD', 'FB_STD', 'CM_MEZZALA', 'DM_ANCHOR', 'CM_PLAYMAKER', 'W_INSIDE', 'ST_POACHER', 'W_WINGER'],
+      },
       lineup: null,
       players: rowsToPlayers('cruz-azul', CRUZ_AZUL_ROWS),
     },
@@ -115,7 +188,14 @@ export function createBaseTeams() {
         gk: '#2a9d3a',
       },
       crest: americaCrest(),
-      tactics: { ...DEFAULT_TACTICS, formation: '4-2-3-1', mentality: 1, pressing: 2, tempo: 2 },
+      tactics: {
+        ...DEFAULT_TACTICS,
+        formation: '4-2-3-1',
+        mentality: 1,
+        pressing: 2,
+        tempo: 2,
+        roles: ['GK_STD', 'FB_STD', 'CB_BPD', 'CB_STD', 'FB_WB', 'DM_WINNER', 'DM_REGISTA', 'W_WINGER', 'AM_ENGANCHE', 'W_INSIDE', 'ST_TARGET'],
+      },
       lineup: null,
       players: rowsToPlayers('america', AMERICA_ROWS),
     },

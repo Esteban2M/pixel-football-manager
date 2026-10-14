@@ -4,6 +4,8 @@ import { SKIN_TONES, HAIR_COLORS, HAIR_STYLES, BEARD_STYLES } from '../pixel/pal
 import { NATIONALITIES } from '../data/names.js'
 import { Modal, PixelCanvas, PitchSpritePreview, Ovr, Bar, playerPortraitGrid } from './Pixel.jsx'
 import PixelEditor from './PixelEditor.jsx'
+import { bodyOf } from '../pixel/sprites.js'
+import { TACTICAL_ROLES, rolesForSlot, roleSuitability } from '../game/roles.js'
 
 export default function PlayerModal({ player, team, onSave, onDelete, onClose, editable = true }) {
   const [draft, setDraft] = useState(() => structuredClone(player))
@@ -66,6 +68,21 @@ export default function PlayerModal({ player, team, onSave, onDelete, onClose, e
               <input type="number" min={15} max={45} value={draft.age} disabled={!editable} onChange={(e) => set({ age: Number(e.target.value) || 18 })} />
             </label>
             <label className="field">
+              Estatura (cm)
+              <input type="number" min={155} max={205} value={draft.height ?? 178} disabled={!editable} onChange={(e) => set({ height: Number(e.target.value) || 178 })} />
+            </label>
+            <label className="field">
+              Rol preferido
+              <select value={draft.prefRole ?? ''} disabled={!editable} onChange={(e) => set({ prefRole: e.target.value || null })}>
+                <option value="">—</option>
+                {[...new Set(draft.roles.flatMap((r) => rolesForSlot(r)))].map((k) => (
+                  <option key={k} value={k}>
+                    {TACTICAL_ROLES[k].name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
               Nacionalidad
               <select value={draft.nationality} disabled={!editable} onChange={(e) => set({ nationality: e.target.value })}>
                 {[...new Set([draft.nationality, ...NATIONALITIES])].map((n) => (
@@ -121,6 +138,18 @@ export default function PlayerModal({ player, team, onSave, onDelete, onClose, e
           </div>
 
           <div>
+            <h3>Idoneidad por rol</h3>
+            <div className="row" style={{ gap: 6 }}>
+              {[...new Set(draft.roles.flatMap((r) => rolesForSlot(r)))].map((k) => (
+                <span key={k} className="chip" title={TACTICAL_ROLES[k].desc}>
+                  {TACTICAL_ROLES[k].name}
+                  {draft.prefRole === k && ' ★'} <b>{roleSuitability(draft, k)}</b>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <h3>Media por posición</h3>
             <div className="row" style={{ gap: 6 }}>
               {ROLE_KEYS.map((r) => (
@@ -135,7 +164,7 @@ export default function PlayerModal({ player, team, onSave, onDelete, onClose, e
         <div className="grid" style={{ gap: 14, alignContent: 'start' }}>
           <div className="panel" style={{ background: 'var(--bg2)', display: 'grid', justifyItems: 'center', gap: 10 }}>
             <PixelCanvas grid={portrait} scale={8} />
-            <PitchSpritePreview appearance={draft.appearance} kit={kit} gk={line === 'GK'} />
+            <PitchSpritePreview appearance={draft.appearance} kit={kit} gk={line === 'GK'} body={bodyOf(draft)} />
             {editable && (
               <div className="row" style={{ justifyContent: 'center' }}>
                 <button className="btn primary sm" onClick={() => setDrawing(true)}>

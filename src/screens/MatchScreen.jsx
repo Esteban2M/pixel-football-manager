@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { createMatch, step, startSecondHalf, substitute, setTactics, clockLabel, possessionPct, playerRating, DT, MAX_SUBS } from '../game/engine/match.js'
+import { createMatch, step, startSecondHalf, substitute, setTactics, setSlotRole, clockLabel, possessionPct, playerRating, DT, MAX_SUBS } from '../game/engine/match.js'
 import { renderPitch, drawMatch, SpriteCache, CANVAS_W, CANVAS_H, toCanvas, blitCamera } from '../pixel/pitchRenderer.js'
 import { ROLES } from '../game/player.js'
+import { TACTICAL_ROLES, rolesForSlot } from '../game/roles.js'
 import { Crest, Bar, Modal } from '../components/Pixel.jsx'
 import { FormationPicker, TacticSliders } from '../components/TacticsBoard.jsx'
 
@@ -56,7 +57,7 @@ export default function MatchScreen({ home, away, userSide = null, seed, title, 
     frame.width = CANVAS_W
     frame.height = CANVAS_H
     const fctx = frame.getContext('2d')
-    const pitch = renderPitch()
+    const pitch = renderPitch([s.teams[0].kit, s.teams[1].kit])
     const cache = new SpriteCache()
     const cam = toCanvas(s.ball.x, s.ball.y)
     let raf
@@ -80,7 +81,7 @@ export default function MatchScreen({ home, away, userSide = null, seed, title, 
           }
         }
       }
-      drawMatch(fctx, s, pitch, cache, paused ? 1 : Math.min(1, acc / DT), { numbers: r.numbers, highlightTeam: userSide })
+      drawMatch(fctx, s, pitch, cache, paused ? 1 : Math.min(1, acc / DT), { numbers: r.numbers, highlightTeam: userSide, now })
       const target = toCanvas(s.ball.x, s.ball.y)
       const k = Math.min(1, real * 4)
       cam.x += (target.x - cam.x) * k
@@ -135,7 +136,7 @@ export default function MatchScreen({ home, away, userSide = null, seed, title, 
 
   return (
     <div className="app">
-      <div className="panel scoreboard">
+      <div className="panel scoreboard" style={{ '--home': h.kit.shirt, '--away': a.kit.shirt }}>
         <div className="side">
           <Crest team={h.def} size={40} />
           <div style={{ minWidth: 0 }}>
@@ -384,6 +385,28 @@ function TeamControl({ s, side }) {
         <FormationPicker value={T.tactics.formation} onChange={(f) => setTactics(s, side, { formation: f })} />
       </div>
       <TacticSliders tactics={T.tactics} onChange={(t) => setTactics(s, side, t)} />
+      <div>
+        <h3>Roles</h3>
+        {T.agents
+          .slice()
+          .sort((x, y) => x.slot - y.slot)
+          .map((ag) => (
+            <div key={ag.id} className="row small" style={{ gap: 6, marginBottom: 4, flexWrap: 'nowrap' }}>
+              <span className={`pos ${ROLES[ag.role].line}`}>{T.slots[ag.slot].label}</span>
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {ag.short}
+                {ag.data.prefRole === ag.trKey && ' ★'}
+              </span>
+              <select value={ag.trKey} onChange={(e) => setSlotRole(s, side, ag.slot, e.target.value)} aria-label={`Rol de ${ag.short}`} style={{ fontSize: 13, padding: '2px 4px' }}>
+                {rolesForSlot(ag.role).map((k) => (
+                  <option key={k} value={k}>
+                    {TACTICAL_ROLES[k].name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+      </div>
       <div className="row">
         <h3 style={{ margin: 0 }}>Cambios</h3>
         <span className="chip">

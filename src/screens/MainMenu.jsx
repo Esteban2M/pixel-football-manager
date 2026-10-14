@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useWorld } from '../state/WorldContext.jsx'
 import { Crest, PixelCanvas } from '../components/Pixel.jsx'
-import { pitchSprite } from '../pixel/sprites.js'
+import { pitchSprite, bodyOf } from '../pixel/sprites.js'
 
 export default function MainMenu({ nav }) {
   const { world, reset } = useWorld()
@@ -10,7 +10,7 @@ export default function MainMenu({ nav }) {
   const sprites = useMemo(
     () =>
       world.teams.slice(0, 2).flatMap((t) =>
-        t.players.slice(3, 6).map((p, i) => ({ id: p.id, grid: pitchSprite(p.appearance, t.kits.home, { frame: i % 2 }) })),
+        t.players.slice(3, 6).map((p, i) => ({ id: p.id, grid: pitchSprite(p.appearance, t.kits.home, { frame: i % 2, body: bodyOf(p) }) })),
       ),
     [world.teams],
   )

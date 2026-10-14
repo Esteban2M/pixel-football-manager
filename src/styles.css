@@ -1,9 +1,9 @@
 :root {
-  --bg: #0d1422;
-  --bg2: #121c2f;
-  --panel: #182339;
-  --panel2: #202e4a;
-  --line: #2c3d60;
+  --bg: #120f2e;
+  --bg2: #171a40;
+  --panel: #1d2358;
+  --panel2: #29317a;
+  --line: #3a4396;
   --ink: #e8eefc;
   --muted: #8fa1c2;
   --accent: #ffec27;
@@ -29,8 +29,9 @@ body,
 
 body {
   background: var(--bg);
-  background-image: radial-gradient(circle at 20% 0%, #18264a 0%, transparent 45%),
-    radial-gradient(circle at 100% 100%, #102a22 0%, transparent 40%);
+  background-image: radial-gradient(circle at 15% 0%, #3b1f78 0%, transparent 45%),
+    radial-gradient(circle at 100% 100%, #0f5a3a 0%, transparent 45%),
+    radial-gradient(circle at 90% 10%, #1352c9 0%, transparent 35%);
   background-attachment: fixed;
   color: var(--ink);
   font-family: var(--body);
@@ -95,7 +96,7 @@ h3 {
 }
 
 .panel {
-  background: var(--panel);
+  background: linear-gradient(180deg, #232a68 0%, var(--panel) 60%);
   border: 2px solid #000;
   box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.06), inset -2px -2px 0 rgba(0, 0, 0, 0.35), 4px 4px 0 rgba(0, 0, 0, 0.35);
   padding: 14px;
@@ -779,4 +780,61 @@ table.data th.num {
   font-size: 12px;
   text-align: center;
   word-break: break-word;
+}
+
+/* ---------- roles ---------- */
+
+.slot .role-tag {
+  background: rgba(41, 173, 255, 0.85);
+  color: #04101c;
+  font-size: 11px;
+}
+
+.role-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.role-opt {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--body);
+  font-size: 14px;
+  padding: 6px 8px;
+  border: 2px solid #000;
+  background: var(--panel2);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.role-opt.on {
+  background: var(--accent);
+  color: #000;
+}
+
+.role-opt .suit {
+  font-family: var(--px);
+  font-size: 8px;
+  padding: 3px 4px;
+  border: 1px solid #000;
+  color: #000;
+}
+
+.scoreboard {
+  background: linear-gradient(90deg, var(--home, #1352c9) 0 8px, transparent 8px calc(100% - 8px), var(--away, #ffe11b) calc(100% - 8px)),
+    linear-gradient(180deg, #2a3280, #1a1f55);
+}
+
+.tabs .btn.active,
+.btn.active {
+  box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.3), inset 3px 3px 0 rgba(255, 255, 255, 0.5), 0 0 0 2px #000, 0 0 12px rgba(255, 236, 39, 0.45);
+}
+
+.pitch-wrap {
+  box-shadow: 0 0 0 2px #000, 0 0 24px rgba(79, 184, 61, 0.35);
 }

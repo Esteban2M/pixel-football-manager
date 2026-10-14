@@ -180,3 +180,42 @@ describe('pixel tools', () => {
     }
   })
 })
+
+describe('tactical roles', () => {
+  it('every formation default role fits its slot', async () => {
+    const { FORMATION_ROLES } = await import('./formations.js')
+    const { rolesForSlot } = await import('./roles.js')
+    for (const f of FORMATION_KEYS) {
+      FORMATIONS[f].forEach((slot, i) => expect(rolesForSlot(slot.role)).toContain(FORMATION_ROLES[f][i]))
+    }
+  })
+
+  it('base squads have real heights, looks and a preferred role', () => {
+    for (const t of createBaseTeams()) {
+      for (const p of t.players) {
+        expect(p.height).toBeGreaterThan(160)
+        expect(p.prefRole).toBeTruthy()
+      }
+    }
+  })
+
+  it('a wing-back plays higher up the pitch than a defensive full-back', () => {
+    const avgX = (role) => {
+      const [caz, ame] = createBaseTeams()
+      caz.tactics.formation = '4-3-3'
+      caz.tactics.roles = ['GK_STD', role, 'CB_STD', 'CB_STD', role, 'CM_B2B', 'DM_ANCHOR', 'CM_B2B', 'W_WINGER', 'ST_ADV', 'W_WINGER']
+      const s = createMatch({ home: caz, away: ame, seed: 'roles' })
+      let sum = 0
+      let n = 0
+      for (let i = 0; i < 2400; i++) {
+        step(s)
+        for (const a of s.teams[0].agents) if (a.slot === 1 || a.slot === 4) {
+          sum += a.x
+          n++
+        }
+      }
+      return sum / n
+    }
+    expect(avgX('FB_WB')).toBeGreaterThan(avgX('FB_DEF') + 3)
+  })
+})

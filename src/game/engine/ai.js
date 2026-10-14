@@ -111,9 +111,10 @@ function leadPoint(p, q) {
 function dribbleDir(s, p) {
   const g = oppGoal(s, p.team)
   const own = toTeam(s, p.team, p.x, p.y)
-  const wide = ['LW', 'RW', 'LB', 'RB'].includes(p.role) && Math.abs(own.fy - 0.5) > 0.25 && own.fx < 0.86
+  const flank = Math.abs(own.fy - 0.5) > 0.25 && own.fx < 0.86
+  const wide = flank && !p.tr.cutInside && (p.tr.wide || p.tr.pos === 'FB' || ['LW', 'RW'].includes(p.role))
   let dx = g.x - p.x
-  let dy = (g.y - p.y) * (wide ? 0.15 : 0.6)
+  let dy = (g.y - p.y) * (wide ? 0.15 : p.tr.cutInside ? 1.1 : 0.6)
   let l = len(dx, dy) || 1
   dx /= l
   dy /= l
@@ -147,12 +148,13 @@ export function chooseAction(s, p, opts = {}) {
   const noise = 0.03 * (1.5 - (attr(p, 'passing') + attr(p, 'positioning')) / 40)
   const riskMul = 1 - tac.mentality * 0.12 + (tac.tempo === 0 ? 0.15 : 0)
   const line = offsideLine(s, t)
+  const tr = p.tr
   const options = []
 
   if (!p.isGK && !opts.passOnly && dGoal < 32 && fx > 0.6) {
     const xg = shotXg(s, p)
     const bias = 1.2 + tac.mentality * 0.1 + (attr(p, 'finishing') - 10) * 0.03
-    options.push({ type: 'shoot', u: xg * bias * 2.4 + (dGoal < 9 ? 0.15 : 0), xg })
+    options.push({ type: 'shoot', u: (xg * bias * 2.05 + (dGoal < 9 ? 0.15 : 0)) * tr.shoot, xg })
   }
 
   for (const q of s.teams[t].agents) {
@@ -168,6 +170,8 @@ export function chooseAction(s, p, opts = {}) {
     const pS = cross ? crossSuccess(s, p, pt) : passSuccess(s, p, pt, d, lofted, press)
     let v = posValue(s, t, pt.x, pt.y) * (cross ? 1.05 : 1)
     v += (qfx - fx) * (tac.tempo - 1) * 0.05
+    if (qfx > fx + 0.05) v *= tr.pass
+    if (d > 30) v *= tr.long
     if (p.isGK && d > 35) v += 0.02 * tac.tempo
     const u = pS * v - (1 - pS) * lossCost(s, t, pt.x, pt.y) * riskMul
     options.push({ type: 'pass', to: q, x: pt.x, y: pt.y, lofted, cross, u })
@@ -188,7 +192,7 @@ export function chooseAction(s, p, opts = {}) {
     }
     if (target && bd < 12) {
       const pS = crossSuccess(s, p, zone) * (bd < 4 ? 1 : 0.8)
-      const u = pS * posValue(s, t, zone.x, zone.y) * 0.9 - (1 - pS) * lossCost(s, t, zone.x, zone.y) * riskMul
+      const u = (pS * posValue(s, t, zone.x, zone.y) * 0.9 - (1 - pS) * lossCost(s, t, zone.x, zone.y) * riskMul) * tr.cross
       options.push({ type: 'pass', to: target, x: zone.x, y: zone.y, lofted: true, cross: true, u })
     }
   }
@@ -199,12 +203,8 @@ export function chooseAction(s, p, opts = {}) {
     const ay = clamp(p.y + dir.y * 6, 0.5, H - 0.5)
     const space = nearestOpponent(s, p, ax, ay).d
     const pKeep = clamp(0.25 + space * 0.07 + (attr(p, 'dribbling') - 10) * 0.025 - (press < 1.8 ? 0.2 : 0), 0.05, 0.95)
-    options.push({
-      type: 'dribble',
-      x: ax,
-      y: ay,
-      u: pKeep * posValue(s, t, ax, ay) - (1 - pKeep) * lossCost(s, t, p.x, p.y) * riskMul + (space > 8 ? 0.03 : 0),
-    })
+    const du = pKeep * posValue(s, t, ax, ay) - (1 - pKeep) * lossCost(s, t, p.x, p.y) * riskMul + (space > 8 ? 0.03 : 0)
+    options.push({ type: 'dribble', x: ax, y: ay, u: du > 0 ? du * tr.dribble : du })
     if (fx < 0.3 && press < 2.5) options.push({ type: 'clear', u: 0.05 })
   }
 
@@ -233,13 +233,18 @@ export function shapeTarget(s, a, ctx) {
   let fx = slot.x
   let fy = slot.y
   const ment = tac.mentality * 0.025
+  const tr = a.tr
   if (inPoss) {
-    fx += 0.1 + (b.fx - 0.5) * 0.5 + ment + (line === 'DF' && slot.role !== 'CB' ? tac.mentality * 0.03 : 0)
+    fx += 0.1 + (b.fx - 0.5) * 0.5 + ment + (line === 'DF' && slot.role !== 'CB' ? tac.mentality * 0.03 : 0) + tr.adv
     fy = 0.5 + (fy - 0.5) * (1 + (tac.width - 1) * 0.18)
+    // Role width: inverted players drift inside, wingers and wing-backs hug the line.
+    const toCentre = Math.sign(0.5 - fy)
+    fy += tr.inside > 0 ? toCentre * Math.min(Math.abs(0.5 - fy) * 0.9, tr.inside) : toCentre * tr.inside
     fy += (b.fy - 0.5) * 0.22
+    if (tr.line === 'offside') fx = Math.max(fx, ctx.offsideLine[a.team] - 0.025)
     if (a.runTimer <= 0) fx = Math.min(fx, ctx.offsideLine[a.team] - 0.008)
   } else {
-    fx += 0.06 + (b.fx - 0.5) * 0.45 + ment * 0.6 + (tac.pressing - 1) * 0.03
+    fx += 0.06 + (b.fx - 0.5) * 0.45 + ment * 0.6 + (tac.pressing - 1) * 0.03 + tr.advDef
     fy = 0.5 + (fy - 0.5) * 0.78
     fy += (b.fy - 0.5) * 0.32
     if (line === 'DF') fx = Math.min(fx, b.fx - 0.03)
@@ -252,11 +257,12 @@ const ROLE_LINE = { GK: 'GK', CB: 'DF', LB: 'DF', RB: 'DF', DM: 'MF', CM: 'MF', 
 export function gkTarget(s, a, ctx) {
   const g = ownGoal(s, a.team)
   const b = ctx.ballTeam[a.team]
+  const sweep = a.tr.sweeper ? 2 : 1
   if (ctx.possTeam === a.team && b.fx > 0.35) {
-    return toWorld(s, a.team, 0.04 + (b.fx - 0.35) * 0.12, 0.5)
+    return toWorld(s, a.team, 0.04 + (b.fx - 0.35) * 0.12 * sweep, 0.5)
   }
   const d = dist(s.ball, g)
-  const off = clamp(d * 0.09, 0.6, 5)
+  const off = clamp(d * 0.09 * sweep, 0.6, 5 * sweep)
   const ang = Math.atan2(s.ball.y - g.y, s.ball.x - g.x)
   return { x: g.x + Math.cos(ang) * off, y: clamp(g.y + Math.sin(ang) * off, CY - 4.5, CY + 4.5) }
 }
@@ -266,7 +272,7 @@ function choosePressers(s, t, ctx) {
   const tac = s.teams[t].tactics
   const bfx = ctx.ballTeam[t].fx
   const engaged = tac.pressing === 2 || (tac.pressing === 1 ? bfx < 0.7 : bfx < 0.45)
-  const sorted = s.teams[t].agents.filter((a) => !a.isGK).sort((a, b) => dist(a, c) - dist(b, c))
+  const sorted = s.teams[t].agents.filter((a) => !a.isGK).sort((a, b) => dist(a, c) / a.tr.press - dist(b, c) / b.tr.press)
   const n = !engaged ? 1 : tac.pressing === 2 || bfx < 0.3 ? 2 : 1
   return { first: sorted[0], second: n > 1 ? sorted[1] : null, engaged: engaged && !c.holding }
 }
@@ -338,13 +344,17 @@ export function planOffBall(s, ctx) {
           if (a.runTimer > 0 && a.runTarget) {
             target = a.runTarget
             urg = 1
-          } else if (['ST', 'LW', 'RW', 'AM'].includes(a.role)) {
+          } else if (a.tr.runs > 0) {
+            // Forwards run from the last line; midfield runners and wing-backs arrive from deeper.
             const afx = toTeam(s, t, a.x, a.y).fx
-            const rate = 0.18 + tac.tempo * 0.06 + tac.mentality * 0.04
-            if (ctx.ballTeam[t].fx > 0.35 && afx > ctx.offsideLine[t] - 0.07 && rng.chance(rate * ctx.dt)) {
+            const rate = (0.18 + tac.tempo * 0.06 + tac.mentality * 0.04) * a.tr.runs
+            const fromLine = afx > ctx.offsideLine[t] - 0.07
+            const fromDeep = a.tr.runs >= 0.6 && afx > 0.42
+            if (ctx.ballTeam[t].fx > 0.35 && (fromLine || fromDeep) && rng.chance(rate * ctx.dt)) {
               const rfx = Math.min(0.96, ctx.offsideLine[t] + rng.range(0.08, 0.16))
               const afy = toTeam(s, t, a.x, a.y).fy
-              a.runTarget = toWorld(s, t, rfx, afy + (0.5 - afy) * 0.3)
+              const overlap = a.tr.pos === 'FB' || a.tr.wide
+              a.runTarget = toWorld(s, t, overlap ? Math.min(rfx, 0.9) : rfx, overlap ? afy : afy + (0.5 - afy) * 0.3)
               a.runTimer = 2.2
               if (ctx.carrier.decide > 0.15) ctx.carrier.decide = 0.15
             }

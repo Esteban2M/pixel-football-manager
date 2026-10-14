@@ -143,6 +143,15 @@ function drawHair(g, style, hair) {
       hline(g, 2, 4, 11, c)
       hline(g, 3, 4, 11, d)
       break
+    case 9: // man bun: tight sides, knot on top
+      hline(g, 0, 6, 9, c)
+      setPx(g, 7, 0, d)
+      hline(g, 1, 5, 10, c)
+      hline(g, 2, 4, 11, c)
+      hline(g, 3, 4, 11, d)
+      setPx(g, 4, 4, d)
+      setPx(g, 11, 4, d)
+      break
     default: // bald
       break
   }
@@ -173,44 +182,84 @@ function drawBeard(g, style, hair, skin) {
   }
 }
 
-// 7x10 pitch sprite. frame: 0 or 1 (running legs). back: true when running away from the camera.
-export function pitchSprite(look, kit, { frame = 0, back = false, gk = false } = {}) {
-  const g = createGrid(7, 10)
+// Body type from real data: height class (short/normal/tall) and build (slim/normal/stocky).
+export function bodyOf(player) {
+  const h = player?.height ?? 178
+  const str = player?.attrs?.strength ?? 12
+  return { tall: h >= 185 ? 2 : h <= 172 ? 0 : 1, build: str >= 15 || (player?.weight ?? 0) >= 82 ? 2 : str <= 10 ? 0 : 1 }
+}
+
+export const SPRITE_W = 7
+export const SPRITE_H = 13
+
+// Pitch sprite, 7x13 with the feet on the bottom row. Taller players get longer bodies,
+// stronger players a wider frame. frame: 0/1 running legs; back: running away from camera.
+export function pitchSprite(look, kit, { frame = 0, back = false, gk = false, body = { tall: 1, build: 1 } } = {}) {
+  const g = createGrid(SPRITE_W, SPRITE_H)
   const skin = SKIN_TONES[look.skin] ?? SKIN_TONES[0]
   const hair = HAIR_COLORS[look.hairColor] ?? HAIR_COLORS[0]
   const bald = look.hair === 8 || look.hair === 0
   const hairC = look.hair === 8 ? skin.shade : look.hair === 0 ? hair.shade : hair.base
   const shirtKit = gk ? { shirt: kit.gk, trim: shade(kit.gk, 0.7), pattern: 0 } : kit
+  const rows = 10 + body.tall
+  let y = SPRITE_H - rows
 
-  hline(g, 0, 2, 4, hairC)
-  if (back) {
-    hline(g, 1, 2, 4, hairC)
-    hline(g, 2, 2, 4, bald ? skin.base : hairC)
-  } else {
-    setPx(g, 2, 1, look.hair === 5 || look.hair === 4 ? hairC : skin.base)
-    setPx(g, 3, 1, skin.base)
-    setPx(g, 4, 1, look.hair === 5 || look.hair === 4 ? hairC : skin.base)
-    hline(g, 2, 2, 4, skin.base)
-    if (look.beard === 3) hline(g, 2, 2, 4, hair.base)
-  }
+  // Head
+  if (look.hair === 9) setPx(g, 3, y - 1, hairC)
   if (look.hair === 4) {
-    setPx(g, 1, 0, hairC)
-    setPx(g, 5, 0, hairC)
-    setPx(g, 1, 1, hairC)
-    setPx(g, 5, 1, hairC)
+    hline(g, y - 1, 2, 4, hairC)
+    setPx(g, 1, y, hairC)
+    setPx(g, 5, y, hairC)
+    setPx(g, 1, y + 1, hairC)
+    setPx(g, 5, y + 1, hairC)
   }
-  for (let x = 1; x <= 5; x++) setPx(g, x, 3, shirtColor(shirtKit, x, 0, 7, 3))
-  for (let y = 4; y <= 5; y++) for (let x = 1; x <= 5; x++) setPx(g, x, y, shirtColor(shirtKit, x, y - 3, 7, 3))
-  setPx(g, 0, 4, skin.base)
-  setPx(g, 6, 4, skin.base)
-  setPx(g, 0, 3, shirtKit.shirt)
-  setPx(g, 6, 3, shirtKit.shirt)
-  hline(g, 6, 1, 5, gk ? shade(kit.gk, 0.6) : kit.shorts)
+  hline(g, y, 2, 4, hairC)
+  if (back) {
+    hline(g, y + 1, 2, 4, hairC)
+    hline(g, y + 2, 2, 4, bald ? skin.base : hairC)
+  } else {
+    const side = look.hair === 5 || look.hair === 4 ? hairC : skin.base
+    setPx(g, 2, y + 1, side)
+    setPx(g, 3, y + 1, skin.base)
+    setPx(g, 4, y + 1, side)
+    hline(g, y + 2, 2, 4, skin.base)
+    if (look.beard === 3 || look.beard === 1) hline(g, y + 2, 2, 4, look.beard === 3 ? hair.base : skin.shade)
+  }
+  y += 3
+
+  // Torso and arms
+  const [x0, x1] = body.build === 0 ? [2, 4] : [1, 5]
+  const torso = body.tall >= 1 ? 4 : 3
+  for (let r = 0; r < torso; r++) {
+    for (let x = x0; x <= x1; x++) setPx(g, x, y + r, shirtColor(shirtKit, x, r, 7, torso))
+    const armL = x0 - 1
+    const armR = x1 + 1
+    if (r === 0) {
+      setPx(g, armL, y, shirtKit.shirt)
+      setPx(g, armR, y, shirtKit.shirt)
+    } else if (r < torso - 1) {
+      setPx(g, armL, y + r, skin.base)
+      setPx(g, armR, y + r, skin.base)
+    }
+  }
+  if (body.build === 2) {
+    // Broad shoulders
+    setPx(g, 0, y + 1, shirtKit.shirt)
+    setPx(g, 6, y + 1, shirtKit.shirt)
+  }
+  y += torso
+
+  // Shorts
+  hline(g, y, Math.max(1, x0), Math.min(5, x1), gk ? shade(kit.gk, 0.6) : kit.shorts)
+  y += 1
+
+  // Legs
   const legs = frame === 0 ? [2, 4] : [1, 5]
+  const legRows = body.tall === 2 ? 2 : 1
   for (const x of legs) {
-    setPx(g, x, 7, skin.base)
-    setPx(g, x, 8, gk ? shade(kit.gk, 0.8) : kit.socks)
-    setPx(g, x, 9, BOOT)
+    for (let r = 0; r < legRows; r++) setPx(g, x, y + r, skin.base)
+    setPx(g, x, y + legRows, gk ? shade(kit.gk, 0.8) : kit.socks)
+    setPx(g, x, y + legRows + 1, BOOT)
   }
   return g
 }

@@ -25,6 +25,23 @@ npm run build      # production build in dist/
 | **Team editor** | Create clubs with their own colours, kits (5 patterns), crest and a generated 23-player squad. You can edit, add and delete players and attributes. |
 | **Pixel Art Studio** | A free-drawing pixel editor with a gallery. You can assign a drawing as a club crest or a player portrait, or export it as a PNG. |
 
+### Tactical roles
+
+Every slot has a **position** (where the player stands) and a **role** (what he does from there). There are 24 roles, modelled on modern tactical vocabulary:
+
+| Position | Roles |
+| --- | --- |
+| Goalkeeper | Portero, Portero líbero (sweeper keeper) |
+| Centre-back | Central, Central con salida (ball-playing), Central de cobertura (cover) |
+| Full-back | Lateral, Carrilero (wing-back), Lateral invertido, Lateral defensivo |
+| Defensive mid | Ancla (anchor), Regista, Recuperador (ball winner) |
+| Central mid | Box to box, Mezzala, Organizador (playmaker) |
+| Attacking mid | Enganche (classic 10), Mediapunta llegador (shadow striker) |
+| Wide | Extremo (winger), Extremo invertido (inside forward), Extremo defensivo |
+| Striker | Delantero centro, Ariete (target man), Cazagoles (poacher), Falso 9, Delantero presionante |
+
+In the match engine (`src/game/roles.js`), a role changes how high and how wide the player stands, how often he makes runs, how eagerly he presses and how much stamina he uses. It also biases his decisions toward shooting, dribbling, forward and long passes, or crosses, and target men get an aerial bonus. Every player has a **preferred role** (★), which gives a small boost when he plays it. A suitability score (0-99) shows how well a player fits each role. The auto-lineup considers roles too, using a greedy pick followed by pairwise-swap local search.
+
 ### Managing
 
 - **Tactics:** 5 formations (4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2), plus mentality, pressing, tempo and width. To build the lineup, tap a slot, then tap another slot or a player.
@@ -72,7 +89,8 @@ scripts/simulate.js   headless batch simulation for tuning
 
 - **Rosters:** these are the squads registered for the Apertura 2026, as published by the clubs and the press up to September/October 2026, with shirt numbers. América's late additions are included: Carlos Álvarez, Óscar Perea, Edwin Cerrillo and Miguel Borja. The coaches are Joel Huiqui (Cruz Azul) and Guillermo Almada (América). Known long-term injuries are modelled: Malagón (Achilles) and Dávila (ACL).
 - **Attributes:** these are gameplay estimates, not official ratings. Edit them freely.
-- **Avatars:** player looks are generated procedurally. Use the Pixel Art Creator to paint real-looking portraits.
+- **Physique:** heights come from ESPN's 2026-27 squad pages, and a few marked `~` in `teams.js` are estimates. Height and strength determine the sprite's size and build. Height also matters in aerial duels.
+- **Looks:** skin tone, hair and beard approximate each player's real appearance. They are approximations, so refine them in the player editor or paint a full portrait in the Pixel Art Creator.
 - **Crests:** the crests are simple pixel designs inspired by each club's colours.
 
 Club names and squads belong to their respective owners. This is a non-commercial fan prototype.

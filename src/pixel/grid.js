@@ -128,3 +128,20 @@ export function gridToDataUrl(g, scale = 8) {
   drawGrid(c.getContext('2d'), g, 0, 0, scale)
   return c.toDataURL('image/png')
 }
+
+// Adds a 1-pixel outline around the opaque pixels (grid grows by 2 in each dimension).
+export function withOutline(g, color = '#0b0f14') {
+  const out = createGrid(g.w + 2, g.h + 2)
+  for (let y = 0; y < g.h; y++) {
+    for (let x = 0; x < g.w; x++) {
+      if (!g.px[y * g.w + x]) continue
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx
+        const ny = y + dy
+        if (!getPx(g, nx, ny)) setPx(out, nx + 1, ny + 1, color)
+      }
+    }
+  }
+  for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) if (g.px[y * g.w + x]) setPx(out, x + 1, y + 1, g.px[y * g.w + x])
+  return out
+}

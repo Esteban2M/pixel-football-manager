@@ -2,6 +2,7 @@ import { createRng } from './rng.js'
 import { makePlayer, generateAttrs, newId } from './player.js'
 import { FIRST_NAMES, LAST_NAMES, NATIONALITIES } from '../data/names.js'
 import { DEFAULT_TACTICS } from './formations.js'
+import { bestRoleFor } from './roles.js'
 import { shieldCrest } from '../data/crests.js'
 
 // A balanced 23-man squad template.
@@ -20,7 +21,7 @@ export function randomPlayer(role, quality, seed = Math.random(), takenNumbers =
   let number = role === 'GK' ? rng.pick([1, 12, 13, 25, 30]) : rng.int(2, 35)
   while (takenNumbers.has(number)) number = (number % 99) + 1
   takenNumbers.add(number)
-  return makePlayer({
+  const p = makePlayer({
     id: newId('p'),
     name: `${first} ${last}`,
     short: last,
@@ -28,8 +29,11 @@ export function randomPlayer(role, quality, seed = Math.random(), takenNumbers =
     nationality: rng.chance(0.7) ? 'MEX' : rng.pick(NATIONALITIES),
     age: rng.int(18, 34),
     roles,
+    height: Math.round(role === 'GK' || role === 'CB' ? rng.range(180, 195) : rng.range(165, 188)),
     attrs: generateAttrs(role, quality + rng.int(-2, 2), rng),
   })
+  p.prefRole = bestRoleFor(p, role)
+  return p
 }
 
 export function generateSquad(quality = 12, seed = Math.random()) {
