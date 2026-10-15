@@ -12,7 +12,53 @@ const SPEEDS = [
   { label: '×2', v: 3 },
   { label: '×4', v: 6 },
   { label: '×8', v: 12 },
+  // Fast while nothing happens, slows down near the boxes, on shots and on dangerous set pieces.
+  { label: '⚡ Jugadas', v: 'auto', title: 'Solo jugadas clave: acelera cuando no pasa nada' },
 ]
+
+const REPLAY_SECONDS = 6
+const REPLAY_FRAMES = Math.round(REPLAY_SECONDS / DT)
+// Replays run a bit slower than the ×1 speed.
+const REPLAY_SPEED = 1
+
+const QUICK_ORDERS = [
+  { label: '🛡 Cerrarse', title: 'Defender el resultado', t: { mentality: -2, pressing: 0, tempo: 0 } },
+  { label: '⚖ Equilibrado', title: 'Volver al plan base', t: { mentality: 0, pressing: 1, tempo: 1 } },
+  { label: '⚔ Atacar', title: 'Buscar el gol', t: { mentality: 1, pressing: 1, tempo: 2 } },
+  { label: '🔥 Todo al ataque', title: 'Presión alta y todos arriba', t: { mentality: 2, pressing: 2, tempo: 2 } },
+]
+
+function isKeyMoment(s) {
+  if (s.ball.shot || s.phase === 'goal') return true
+  if (s.phase === 'restart' && ['corner', 'penalty', 'freekick'].includes(s.restart?.type)) return true
+  return s.ball.x < 24 || s.ball.x > 105 - 24
+}
+
+function snapshot(s) {
+  const a = new Float32Array(s.agents.length * 5)
+  s.agents.forEach((ag, i) => {
+    a[i * 5] = ag.x
+    a[i * 5 + 1] = ag.y
+    a[i * 5 + 2] = ag.vx
+    a[i * 5 + 3] = ag.vy
+    a[i * 5 + 4] = ag.anim
+  })
+  return { agents: s.agents.slice(), a, bx: s.ball.x, by: s.ball.y, bz: s.ball.z, owner: s.ball.owner ? s.agents.indexOf(s.ball.owner) : -1 }
+}
+
+// A drawable stand-in for the match state built from one recorded frame.
+function replayState(s, f) {
+  const agents = f.agents.map((ag, i) => {
+    const o = Object.create(ag)
+    o.x = o.px = f.a[i * 5]
+    o.y = o.py = f.a[i * 5 + 1]
+    o.vx = f.a[i * 5 + 2]
+    o.vy = f.a[i * 5 + 3]
+    o.anim = f.a[i * 5 + 4]
+    return o
+  })
+  return { phase: 'play', agents, teams: s.teams, ball: { x: f.bx, y: f.by, z: f.bz, px: f.bx, py: f.by, pz: f.bz, owner: f.owner >= 0 ? agents[f.owner] : null } }
+}
 
 const RESTART_LABEL = {
   kickoff: 'Saque inicial',
@@ -44,11 +90,25 @@ export default function MatchScreen({ home, away, userSide = null, seed, title, 
   const [, setTick] = useState(0)
   const [talk, setTalk] = useState(null)
   const [zoom, setZoom] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 700 ? 2 : 1))
-  const live = useRef({ running: true, speed: SPEEDS[1].v, numbers: false, zoom: 1 })
+  const [autoReplay, setAutoReplay] = useState(true)
+  const [replaying, setReplaying] = useState(null)
+  const live = useRef({ running: true, speed: SPEEDS[1].v, numbers: false, zoom: 1, autoReplay: true })
+  const replayRef = useRef(null)
+  const replaysRef = useRef([])
 
   useEffect(() => {
-    live.current = { running, speed: SPEEDS[speed].v, numbers, zoom }
-  }, [running, speed, numbers, zoom])
+    live.current = { running, speed: SPEEDS[speed].v, numbers, zoom, autoReplay }
+  }, [running, speed, numbers, zoom, autoReplay])
+
+  const playReplay = (rep) => {
+    if (!rep) return
+    replayRef.current = { ...rep, i: 0 }
+    setReplaying(rep)
+  }
+  const stopReplay = () => {
+    replayRef.current = null
+    setReplaying(null)
+  }
 
   useEffect(() => {
     const ctx = canvasRef.current.getContext('2d')
@@ -63,18 +123,55 @@ export default function MatchScreen({ home, away, userSide = null, seed, title, 
     let raf
     let last = performance.now()
     let acc = 0
+    const buf = []
+    let goalsSeen = s.goals.length
     const loop = (now) => {
       const real = Math.min(0.1, (now - last) / 1000)
       last = now
       const r = live.current
+      const rep = replayRef.current
+      if (rep) {
+        // Replay: draw recorded frames instead of advancing the match.
+        rep.i += real * REPLAY_SPEED / DT
+        const f = rep.frames[Math.min(rep.frames.length - 1, Math.floor(rep.i))]
+        const rs = replayState(s, f)
+        drawMatch(fctx, rs, pitch, cache, 1, { numbers: r.numbers, highlightTeam: userSide, now })
+        const target = toCanvas(f.bx, f.by)
+        const k = Math.min(1, real * 6)
+        cam.x += (target.x - cam.x) * k
+        cam.y += (target.y - cam.y) * k
+        blitCamera(ctx, frame, cam, Math.max(r.zoom, 1.5))
+        if (rep.i >= rep.frames.length + 10) {
+          replayRef.current = null
+          setReplaying(null)
+        }
+        raf = requestAnimationFrame(loop)
+        return
+      }
       const paused = s.phase === 'halftime' || s.phase === 'fulltime'
       if (r.running && !paused) {
-        acc += real * r.speed
+        const speedNow = r.speed === 'auto' ? (isKeyMoment(s) ? 2.5 : 30) : r.speed
+        acc += real * speedNow
         let n = 0
-        while (acc >= DT && n < 500) {
+        while (acc >= DT && n < 800) {
           step(s)
+          buf.push(snapshot(s))
+          if (buf.length > REPLAY_FRAMES + 40) buf.shift()
           acc -= DT
           n++
+          if (s.goals.length > goalsSeen) {
+            goalsSeen = s.goals.length
+            const g = s.goals[s.goals.length - 1]
+            // Keep the build-up and a moment after the ball crosses the line.
+            const rec = { goal: g, frames: buf.slice(-REPLAY_FRAMES) }
+            replaysRef.current.push(rec)
+            if (r.autoReplay) {
+              replayRef.current = { ...rec, i: 0 }
+              setReplaying(rec)
+              acc = 0
+              break
+            }
+          }
           if (s.phase === 'halftime' || s.phase === 'fulltime') {
             acc = 0
             break
@@ -174,7 +271,16 @@ export default function MatchScreen({ home, away, userSide = null, seed, title, 
         <div>
           <div className="pitch-wrap">
             <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H} className="pixel" aria-label="Campo de juego" />
-            {s.phase === 'goal' && <div className="pitch-flash">¡GOOOL!</div>}
+            {replaying ? (
+              <div className="replay-badge">
+                <span>🎬 REPETICIÓN · {replaying.goal.name} {replaying.goal.minute}'</span>
+                <button className="btn sm" onClick={stopReplay}>
+                  Saltar ⏭
+                </button>
+              </div>
+            ) : (
+              s.phase === 'goal' && <div className="pitch-flash">¡GOOOL!</div>
+            )}
           </div>
           <div className="carrier-line">
             {s.phase === 'restart' ? restartTxt : carrier ? `⚽ ${carrier.number} ${carrier.name} · ${s.teams[carrier.team].def.short}` : s.ball.shot ? '¡Disparo!' : ' '}
@@ -194,7 +300,7 @@ export default function MatchScreen({ home, away, userSide = null, seed, title, 
               </button>
             )}
             {SPEEDS.map((sp, i) => (
-              <button key={sp.label} className={`btn sm ${speed === i ? 'active' : 'ghost'}`} onClick={() => setSpeed(i)}>
+              <button key={sp.label} className={`btn sm ${speed === i ? 'active' : 'ghost'}`} onClick={() => setSpeed(i)} title={sp.title}>
                 {sp.label}
               </button>
             ))}
@@ -204,11 +310,36 @@ export default function MatchScreen({ home, away, userSide = null, seed, title, 
             <button className={`btn sm ${zoom > 1 ? 'active' : 'ghost'}`} onClick={() => setZoom(zoom > 1 ? 1 : 2)} title="Cámara que sigue al balón">
               🔍 Zoom
             </button>
+            <button
+              className="btn ghost sm"
+              disabled={!replaysRef.current.length || !!replaying}
+              onClick={() => playReplay(replaysRef.current[replaysRef.current.length - 1])}
+              title="Ver otra vez el último gol"
+            >
+              🎬 Último gol
+            </button>
+            <button className={`btn sm ${autoReplay ? 'active' : 'ghost'}`} onClick={() => setAutoReplay(!autoReplay)} title="Repetir cada gol automáticamente">
+              Auto-repetición
+            </button>
             <span className="spacer" />
             <button className="btn ghost sm" onClick={() => runToEnd(s)} disabled={s.phase === 'fulltime'}>
               ⏭ Simular resto
             </button>
           </div>
+          {userSide !== null && s.phase !== 'fulltime' && (
+            <div className="row" style={{ marginTop: 8 }}>
+              <span className="small muted">Indicaciones rápidas:</span>
+              {QUICK_ORDERS.map((o) => {
+                const T = s.teams[userSide].tactics
+                const on = T.mentality === o.t.mentality && T.pressing === o.t.pressing && T.tempo === o.t.tempo
+                return (
+                  <button key={o.label} className={`btn sm ${on ? 'active' : 'ghost'}`} title={o.title} onClick={() => setTactics(s, userSide, o.t)}>
+                    {o.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         <div className="panel">
