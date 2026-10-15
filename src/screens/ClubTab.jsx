@@ -2,6 +2,7 @@ import { overall } from '../game/player.js'
 import { formatMoney, squadValue, wageBill, playerValue, potentialStars } from '../game/economy.js'
 import { Crest, Ovr, Stars } from '../components/Pixel.jsx'
 import { Money } from './MarketTab.jsx'
+import { ManagerCard } from './ManagerPanels.jsx'
 
 function Kpi({ label, children }) {
   return (
@@ -46,6 +47,7 @@ export default function ClubTab({ world, career, team }) {
             Al cerrar cada temporada cobras ingresos (según el tamaño del club y tu posición final, con premio al campeón) y pagas los salarios. Fichar caro sube la masa salarial: cuidado con los números rojos.
           </p>
         </div>
+        <ManagerCard world={world} career={career} />
         <div className="panel">
           <h3>Palmarés e historial</h3>
           {!(career.history ?? []).length ? (
@@ -55,6 +57,7 @@ export default function ClubTab({ world, career, team }) {
               <thead>
                 <tr>
                   <th>Temporada</th>
+                  <th>Tu club</th>
                   <th className="num">Pos.</th>
                   <th>Campeón</th>
                   <th>Goleador</th>
@@ -66,9 +69,17 @@ export default function ClubTab({ world, career, team }) {
                   .reverse()
                   .map((h) => {
                     const champ = world.teams.find((t) => t.id === h.champion)
+                    const mine = world.teams.find((t) => t.id === h.teamId)
                     return (
                       <tr key={h.season} className={h.won ? 'me' : ''}>
                         <td>{h.label}</td>
+                        <td>
+                          <div className="crest-name">
+                            <Crest team={mine} size={16} />
+                            {mine?.short ?? '—'}
+                            {h.sacked ? ' ❌' : ''}
+                          </div>
+                        </td>
                         <td className="num">
                           {h.position ?? '—'}/{h.teams}
                         </td>

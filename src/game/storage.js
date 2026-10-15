@@ -6,7 +6,7 @@ import { ensureCareer } from './season.js'
 
 const KEY = 'pixel-football-manager/world-v1'
 
-const VERSION = 5
+const VERSION = 6
 
 export function defaultLeagues() {
   return [
@@ -69,7 +69,7 @@ export function migrateWorld(w) {
       }
     }
   }
-  // v4 → v5: career mode (values, wages, contracts, potential, budgets, free agents).
+  // v4 → v6: career mode and manager career (values, wages, contracts, potential, budgets, free agents).
   ensureEconomy(w)
   ensureCareer(w, w.career)
   w.version = VERSION

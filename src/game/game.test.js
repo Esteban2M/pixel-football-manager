@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createRng } from './rng.js'
-import { roundRobin, createCareer, completeRound, standings, nextUserFixture, applyResult, startNextSeason } from './season.js'
+import { roundRobin, createCareer, completeRound, standings, nextUserFixture, applyResult, startNextSeason, takeJob } from './season.js'
 import { develop, playerValue } from './economy.js'
 import { askingPrice, evaluateOffer, completePurchase, windowOpen } from './market.js'
 import { makePlayer, generateAttrs, overall } from './player.js'
@@ -437,5 +437,44 @@ describe('career mode', () => {
     expect(c.transfers.length).toBeGreaterThan(0)
     playSeason(w, c)
     expect(c.finished).toBe(true)
+  })
+})
+
+describe('manager career', () => {
+  it('sets a reachable objective that depends on squad strength', () => {
+    const w = createWorld()
+    const strong = createCareer(w, 'liga-mx-a26', 'toluca')
+    const weak = createCareer(w, 'liga-mx-a26', 'puebla')
+    expect(strong.board.objective.target).toBeLessThan(weak.board.objective.target)
+    expect(weak.board.objective.target).toBeLessThan(18)
+    expect(strong.manager.reputation).toBeGreaterThan(weak.manager.reputation)
+  })
+
+  it('a terrible run gets the manager sacked, and he can take another job', () => {
+    const w = createWorld()
+    const c = createCareer(w, 'liga-mx-a26', 'cruz-azul')
+    c.board.confidence = 9
+    // Make the club awful so the board loses patience.
+    for (const p of w.teams.find((t) => t.id === 'cruz-azul').players) for (const k in p.attrs) p.attrs[k] = 3
+    for (let g = 0; g < 80 && !c.sacked && !c.finished; g++) completeRound(w, c)
+    expect(c.sacked).toBeTruthy()
+    expect(c.manager.sackings).toBe(1)
+    expect(c.jobOffers.length).toBeGreaterThan(0)
+    expect(startNextSeason(w, c).sacked).toBeTruthy()
+    const target = c.jobOffers[0].teamId
+    expect(takeJob(w, c, target)).toBe(true)
+    expect(c.userTeamId).toBe(target)
+    expect(c.sacked).toBe(null)
+    expect(c.manager.stints).toHaveLength(2)
+    expect(c.manager.stints[0].sacked).toBe(true)
+  })
+
+  it('reviews the season against the objective', () => {
+    const w = createWorld()
+    const c = createCareer(w, 'liga-mx-a26', 'toluca')
+    for (let g = 0; g < 80 && !c.finished; g++) completeRound(w, c)
+    expect(c.review).toBeTruthy()
+    expect(typeof c.review.met).toBe('boolean')
+    expect(c.history.at(-1).teamId).toBe('toluca')
   })
 })

@@ -11,7 +11,7 @@ export const MIN_SQUAD = 18
 export const WINDOW_MATCHDAYS = 3
 
 export function windowOpen(career) {
-  return !!career && (career.finished || career.matchdayNo <= WINDOW_MATCHDAYS)
+  return !!career && !career.sacked && (career.finished || career.matchdayNo <= WINDOW_MATCHDAYS)
 }
 
 const r2 = (v) => Math.round(v * 100) / 100

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useWorld } from '../state/WorldContext.jsx'
-import { nextUserFixture, topScorers, applyResult, completeRound, currentFixtures, userResults, startNextSeason, finalPositions } from '../game/season.js'
+import { nextUserFixture, topScorers, applyResult, completeRound, currentFixtures, userResults, startNextSeason, finalPositions, takeJob } from '../game/season.js'
 import { groupTable, currentStage, findFixture, teamStatus } from '../game/competition.js'
 import { simulateMatch } from '../game/engine/match.js'
 import { Crest, Ovr } from '../components/Pixel.jsx'
@@ -12,6 +12,7 @@ import { overall } from '../game/player.js'
 import { windowOpen } from '../game/market.js'
 import MarketTab, { Money } from './MarketTab.jsx'
 import ClubTab from './ClubTab.jsx'
+import { BoardPanel, JobOffers, SackedPanel, ObjectiveVerdict } from './ManagerPanels.jsx'
 
 // Zone colour for a table position; negative positions count from the bottom.
 function zoneFor(zones, pos, size) {
@@ -169,7 +170,7 @@ function ProgressList({ title, items, empty }) {
 }
 
 // End of season: who improved, who declined, whose contract is running out.
-function SeasonReview({ world, career, team, champion, onNext, onNew }) {
+function SeasonReview({ world, career, team, champion, onNext, onNew, onTake }) {
   const pos = finalPositions(career)[team.id]
   const changes = team.players
     .map((p) => ({ p, d: overall(p) - (p.seasonStartOvr ?? overall(p)) }))
@@ -185,6 +186,13 @@ function SeasonReview({ world, career, team, champion, onNext, onNew }) {
           {champion.id === team.id ? '¡Lo lograste! Tu equipo levanta el título.' : `${career.name} terminó. ${team.name} no consiguió el título esta vez.`}
           {pos ? ` Posición final en la fase regular: ${pos}º.` : ''}
         </p>
+      </div>
+      <ObjectiveVerdict career={career} />
+      {career.sacked ? (
+        <div className="offer-msg refused">❌ La directiva te ha despedido. Acepta una oferta para seguir tu carrera en otro club.</div>
+      ) : null}
+      <div style={{ marginTop: 10 }}>
+        <JobOffers world={world} career={career} onTake={onTake} title={career.sacked ? 'Ofertas de trabajo' : 'Otros clubes te quieren'} />
       </div>
       <div className="grid cols-2" style={{ marginTop: 10 }}>
         <ProgressList
@@ -204,7 +212,7 @@ function SeasonReview({ world, career, team, champion, onNext, onNew }) {
       </div>
       <p className="small muted">El mercado está abierto: ficha, vende y renueva antes de empezar la siguiente temporada. Al pasar de año los jugadores cumplen años, algunos veteranos se retiran y suben juveniles de la cantera.</p>
       <div className="row" style={{ marginTop: 12 }}>
-        <button className="btn primary" onClick={onNext}>
+        <button className="btn primary" onClick={onNext} disabled={!!career.sacked}>
           ▶ Siguiente temporada
         </button>
         <button className="btn ghost" onClick={onNew}>
@@ -260,7 +268,7 @@ export default function Hub({ nav }) {
   const comp = career.competition
   const team = world.teams.find((t) => t.id === career.userTeamId)
   const stage = currentStage(comp)
-  const fixture = nextUserFixture(career)
+  const fixture = career.sacked ? null : nextUserFixture(career)
   const home = fixture && world.teams.find((t) => t.id === fixture.home)
   const away = fixture && world.teams.find((t) => t.id === fixture.away)
   const userSide = fixture ? (fixture.home === team.id ? 0 : 1) : 0
@@ -350,12 +358,15 @@ export default function Hub({ nav }) {
                 team={team}
                 champion={champion}
                 onNew={() => nav('select')}
+                onTake={(id) => update((w) => takeJob(w, w.career, id))}
                 onNext={() =>
                   update((w) => {
                     startNextSeason(w, w.career)
                   })
                 }
               />
+            ) : career.sacked ? (
+              <SackedPanel world={world} career={career} onTake={(id) => update((w) => takeJob(w, w.career, id))} onSimulate={() => simulateRound(false)} onNew={() => nav('select')} />
             ) : fixture ? (
               <div className="panel">
                 <h2>
@@ -437,6 +448,7 @@ export default function Hub({ nav }) {
             </div>
           </div>
           <div className="grid" style={{ gap: 16, alignContent: 'start' }}>
+            {!career.sacked && !comp.finished && <BoardPanel career={career} />}
             {lastTable && (
               <div className="panel">
                 <h3>

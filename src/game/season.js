@@ -7,6 +7,7 @@ import { createCompetition, currentMatchday, advance, allFixtures, groupTable, c
 import { overall } from './player.js'
 import { ensureEconomy, develop, youthIntake, shouldRetire, wageBill, generateFreeAgents, formatMoney, wageFor } from './economy.js'
 import { generateOffers, aiTransfers, ensureSquad, transferPlayer, WINDOW_MATCHDAYS } from './market.js'
+import { makeObjective, createManager, updateConfidence, shouldSackNow, sack, reviewSeason, jobOffers, currentStint, START_CONFIDENCE } from './manager.js'
 
 export { roundRobin } from './competition.js'
 
@@ -50,7 +51,7 @@ export function createCareer(world, leagueId, userTeamId) {
   const team = world.teams.find((t) => t.id === userTeamId)
   const spy = seasonsPerYear(league)
   const label = seasonLabel(spy, FIRST_YEAR, 0)
-  return {
+  const career = {
     userTeamId,
     leagueId,
     name: `${baseLeagueName(league.name)} · ${label}`,
@@ -62,6 +63,17 @@ export function createCareer(world, leagueId, userTeamId) {
     finished: false,
     ...careerDefaults(spy, label),
   }
+  ensureManager(world, career)
+  career.news.push({ round: 0, text: `🎯 Objetivo de la directiva: ${career.board.objective.text.toLowerCase()}.` })
+  return career
+}
+
+function ensureManager(world, career) {
+  career.board ??= { objective: makeObjective(world, career.competition, career.userTeamId), confidence: START_CONFIDENCE }
+  career.manager ??= createManager(world, career)
+  career.sacked ??= null
+  career.review ??= null
+  career.jobOffers ??= []
 }
 
 export function careerDefaults(spy = 1, label = seasonLabel(spy, FIRST_YEAR, 0)) {
@@ -76,6 +88,7 @@ export function ensureCareer(world, career) {
     const league = world.leagues.find((l) => l.id === career.leagueId)
     Object.assign(career, careerDefaults(league ? seasonsPerYear(league) : 1))
   }
+  ensureManager(world, career)
   return career
 }
 
@@ -162,12 +175,18 @@ export function completeRound(world, career) {
     applyResult(world, career, m, result)
   }
   const stageBefore = comp.stage
+  const userFixtures = currentFixtures(career).filter((m) => m.home === career.userTeamId || m.away === career.userTeamId)
+  if (career.board && !career.sacked) updateConfidence(career, userFixtures)
   developRound(world, career)
   const news = advance(comp, getTeam)
   for (const text of news) career.news.push({ round: career.matchdayNo, text })
   recoverTeams(world, comp.teamIds)
   career.matchdayNo++
-  if (career.offers) generateOffers(world, career, createRng(`offers-${comp.seed}-${career.matchdayNo}`))
+  if (career.offers && !career.sacked) generateOffers(world, career, createRng(`offers-${comp.seed}-${career.matchdayNo}`))
+  if (career.board && shouldSackNow(career)) {
+    sack(world, career, 'A mitad de temporada')
+    career.jobOffers = jobOffers(world, career, createRng(`jobs-${comp.seed}-${career.matchdayNo}`), { sacked: true, midSeason: true })
+  }
   if (comp.stage !== stageBefore || comp.finished) {
     const alive = currentStage(comp)?.teams.includes(career.userTeamId)
     if (!comp.finished && !alive) career.news.push({ round: career.matchdayNo, text: `Tu equipo quedó fuera de ${currentStage(comp).name}. Puedes seguir simulando el torneo.` })
@@ -176,8 +195,70 @@ export function completeRound(world, career) {
     career.finished = true
     const champ = getTeam(comp.champion)
     career.news.push({ round: career.matchdayNo, text: `🏆 ¡${champ?.name ?? '?'} es campeón de ${career.name}!` })
-    if (career.offers) generateOffers(world, career, createRng(`offers-${comp.seed}-end`))
+    recordHistory(world, career)
+    if (career.board) {
+      if (career.sacked) career.jobOffers = jobOffers(world, career, createRng(`jobs-${comp.seed}-end`), { sacked: true })
+      else reviewSeason(world, career)
+    }
+    if (career.offers && !career.sacked) generateOffers(world, career, createRng(`offers-${comp.seed}-end`))
   }
+}
+
+function recordHistory(world, career) {
+  if (!career.history) return
+  const comp = career.competition
+  const user = world.teams.find((t) => t.id === career.userTeamId)
+  const pos = finalPositions(career)
+  const top = user.players.slice().sort((a, b) => b.stats.goals - a.stats.goals)[0]
+  career.history.push({
+    season: career.season,
+    label: career.seasonLabel,
+    name: career.name,
+    teamId: user.id,
+    position: pos[user.id] ?? null,
+    teams: comp.teamIds.length,
+    champion: comp.champion,
+    won: comp.champion === user.id,
+    sacked: !!career.sacked,
+    topScorer: top && top.stats.goals ? { name: top.name, goals: top.stats.goals } : null,
+    budget: user.finances.budget,
+  })
+}
+
+// The manager accepts a job offer: mid-season (same competition) or between seasons (any league).
+export function takeJob(world, career, teamId) {
+  const offer = (career.jobOffers ?? []).find((o) => o.teamId === teamId)
+  const team = world.teams.find((t) => t.id === teamId)
+  if (!offer || !team) return false
+  const oldTeam = world.teams.find((t) => t.id === career.userTeamId)
+  const stint = currentStint(career)
+  if (!stint.to) stint.to = career.seasonLabel
+  for (const p of oldTeam?.players ?? []) p.listed = false
+  career.userTeamId = teamId
+  const midSeason = !career.competition.finished
+  if (!midSeason) {
+    const current = world.leagues.find((l) => l.id === career.leagueId)
+    if (!current?.teamIds.includes(teamId)) {
+      const league = world.leagues.find((l) => l.teamIds.includes(teamId))
+      if (league) {
+        career.leagueId = league.id
+        const spy = seasonsPerYear(league)
+        if (spy !== career.seasonsPerYear) {
+          career.seasonsPerYear = spy
+          career.half = 1
+        }
+      }
+    }
+  }
+  career.manager.stints.push({ teamId, from: career.seasonLabel, to: null, seasons: 0, titles: 0, w: 0, d: 0, l: 0 })
+  career.board = { objective: midSeason ? makeObjective(world, career.competition, teamId) : career.board.objective, confidence: START_CONFIDENCE }
+  career.sacked = null
+  career.jobOffers = []
+  career.offers = []
+  career.negotiations = {}
+  if (career.review) career.review.sacked = false
+  career.news.push({ round: career.matchdayNo, text: `🤝 Eres el nuevo entrenador de ${team.name}.` })
+  return true
 }
 
 // Growth happens during the regular phase, spread over its matchdays; playing time speeds it up.
@@ -211,7 +292,7 @@ function prizeMoney(pos, n, champion) {
 // Closes the finished season and sets up the next one: finances, ageing, contracts, retirements,
 // youth intake, AI transfers and a new competition with the same league.
 export function startNextSeason(world, career) {
-  if (!career.finished) return career
+  if (!career.finished || career.sacked) return career
   ensureCareer(world, career)
   const league = world.leagues.find((l) => l.id === career.leagueId)
   const comp = career.competition
@@ -222,19 +303,6 @@ export function startNextSeason(world, career) {
   const n = comp.teamIds.length
   const summary = { label: career.seasonLabel, risers: [], decliners: [], retired: [], youth: [], expired: [], aiMoves: 0 }
 
-  // Season review for the user's club.
-  const top = user.players.slice().sort((a, b) => b.stats.goals - a.stats.goals)[0]
-  career.history.push({
-    season: career.season,
-    label: career.seasonLabel,
-    name: career.name,
-    position: pos[user.id] ?? null,
-    teams: n,
-    champion: comp.champion,
-    won: comp.champion === user.id,
-    topScorer: top && top.stats.goals ? { name: top.name, goals: top.stats.goals } : null,
-    budget: user.finances.budget,
-  })
   for (const p of user.players) {
     const d = overall(p) - (p.seasonStartOvr ?? overall(p))
     if (d >= 2) summary.risers.push({ name: p.name, from: p.seasonStartOvr, to: overall(p) })
@@ -300,6 +368,12 @@ export function startNextSeason(world, career) {
   career.negotiations = {}
   career.offers = []
   career.summary = summary
+  if (career.board) {
+    career.board.objective = makeObjective(world, career.competition, career.userTeamId)
+    career.review = null
+    career.jobOffers = []
+    career.news.push({ round: 0, text: `🎯 Objetivo de la directiva: ${career.board.objective.text.toLowerCase()}.` })
+  }
   career.news.push({ round: 0, text: `📅 Comienza ${career.name}. Presupuesto: ${formatMoney(user.finances.budget)}. El mercado sigue abierto ${WINDOW_MATCHDAYS} jornadas.` })
   generateOffers(world, career, createRng(`offers-${career.season}-start`))
   return career
