@@ -4,7 +4,13 @@ A browser football-manager game with pixel art, built with React + Vite.
 This first version is a playable prototype for testing gameplay and mechanics.
 It runs entirely locally: there is no backend, and all data is saved in your browser (`localStorage`).
 
-It ships with the **Liga MX Apertura 2026**: all 18 clubs and its real format (17 matchdays plus a two-legged Liguilla for the top 8). Cruz Azul and América have their real squads, while the other 16 clubs have generated squads (see *About the data*). Everything is customisable and portable: leagues and formats are configurable, and teams, leagues, formats or the whole world can be **imported and exported as JSON**.
+It ships with the **Liga MX Apertura 2026**: all 18 clubs and its real format (17 matchdays plus a two-legged Liguilla for the top 8). All 18 clubs have their real squads, with varying confidence (see *About the data*). Everything is customisable and portable: leagues and formats are configurable, and teams, leagues, formats or the whole world can be **imported and exported as JSON**.
+
+## Docs
+
+- [`docs/plan.md`](docs/plan.md): vision, goals, current state and roadmap (in Spanish).
+- [`docs/investigacion-mercado.md`](docs/investigacion-mercado.md): similar games and what makes this one different.
+- [`docs/task/`](docs/task/README.md): task log (`backlog/`, `in-progress/`, `done/`).
 
 ## Run it
 
