@@ -238,39 +238,60 @@ function weakestStarter(team) {
   return xi.sort((a, b) => overall(a) - overall(b))[0] ?? null
 }
 
-export function aiTransfers(world, career, rng, maxMoves = 14) {
+export function aiTransfers(world, career, rng, maxMoves = 20) {
   const moves = []
   const clubs = world.teams.filter((t) => t.id !== career.userTeamId && t.finances)
-  const order = clubs.slice().sort(() => rng.next() - 0.5)
-  for (const buyer of order) {
-    if (moves.length >= maxMoves) break
-    if (buyer.players.length >= MAX_SQUAD - 1 || !rng.chance(0.65)) continue
-    const weak = weakestStarter(buyer)
-    if (!weak) continue
-    const role = weak.roles[0]
-    const target = overall(weak) + 2
-    const candidates = []
-    for (const seller of world.teams) {
-      if (seller.id === buyer.id || seller.id === career.userTeamId || seller.players.length <= MIN_SQUAD + 1) continue
-      for (const p of seller.players) {
-        if (p.roles[0] !== role || overall(p) < target || p.age > 31) continue
-        if (role === 'GK' && goalkeepers(seller) <= 2) continue
-        const fee = askingPrice(seller, p)
-        if (fee <= buyer.finances.budget * 0.7) candidates.push({ p, seller, fee })
+
+  // Clubs in debt sell their most valuable player to whoever can pay for him.
+  for (const seller of clubs) {
+    if (seller.finances.budget >= 0 || seller.players.length <= MIN_SQUAD + 1) continue
+    const sellable = seller.players.filter((p) => !(p.roles[0] === 'GK' && goalkeepers(seller) <= 2)).sort((a, b) => playerValue(b) - playerValue(a))
+    for (const p of sellable.slice(0, 3)) {
+      const fee = r2(playerValue(p))
+      const buyers = clubs.filter((b) => b.id !== seller.id && b.finances.budget >= fee * 1.2 && b.players.length < MAX_SQUAD - 1 && teamStrength(b) >= overall(p) - 6)
+      if (!buyers.length) continue
+      const buyer = buyers.sort((a, b) => b.finances.budget - a.finances.budget)[0]
+      transferPlayer(world, career, { playerId: p.id, fromId: seller.id, toId: buyer.id, fee })
+      moves.push({ p, seller, fee })
+      break
+    }
+  }
+
+  // Everybody tries to upgrade their weakest starter; rich clubs get a second go.
+  for (let pass = 0; pass < 2; pass++) {
+    const order = clubs.slice().sort(() => rng.next() - 0.5)
+    for (const buyer of order) {
+      if (moves.length >= maxMoves) break
+      const rich = buyer.finances.budget > Math.max(10, (buyer.finances.baseIncome ?? 4) * 2.5)
+      if (pass === 1 && !rich) continue
+      if (buyer.players.length >= MAX_SQUAD - 1 || !rng.chance(pass === 0 ? 0.65 : 0.8)) continue
+      const weak = weakestStarter(buyer)
+      if (!weak) continue
+      const role = weak.roles[0]
+      const target = overall(weak) + 2
+      const candidates = []
+      for (const seller of world.teams) {
+        if (seller.id === buyer.id || seller.id === career.userTeamId || seller.players.length <= MIN_SQUAD + 1) continue
+        for (const p of seller.players) {
+          if (p.roles[0] !== role || overall(p) < target || p.age > 31) continue
+          if (role === 'GK' && goalkeepers(seller) <= 2) continue
+          const fee = askingPrice(seller, p)
+          if (fee <= buyer.finances.budget * 0.7) candidates.push({ p, seller, fee })
+        }
       }
+      for (const p of world.freeAgents ?? []) {
+        if (p.roles[0] === role && overall(p) >= target && p.age <= 33) candidates.push({ p, seller: null, fee: 0 })
+      }
+      if (!candidates.length) continue
+      // Prefer the best player the club can afford, with some variety.
+      candidates.sort((a, b) => overall(b.p) - overall(a.p) + rng.range(-2, 2))
+      const c = candidates[0]
+      if (!interested(c.p, buyer, `${career.season}-ai`)) continue
+      transferPlayer(world, career, { playerId: c.p.id, fromId: c.seller?.id ?? null, toId: buyer.id, fee: c.fee })
+      moves.push(c)
+      // Make room: the replaced starter is sometimes sold off to the pool.
+      if (buyer.players.length > 25 && rng.chance(0.5)) transferPlayer(world, career, { playerId: weak.id, fromId: buyer.id, toId: null })
     }
-    for (const p of world.freeAgents ?? []) {
-      if (p.roles[0] === role && overall(p) >= target && p.age <= 33) candidates.push({ p, seller: null, fee: 0 })
-    }
-    if (!candidates.length) continue
-    // Prefer the best player the club can afford, with some variety.
-    candidates.sort((a, b) => overall(b.p) - overall(a.p) + rng.range(-2, 2))
-    const c = candidates[0]
-    if (!interested(c.p, buyer, `${career.season}-ai`)) continue
-    transferPlayer(world, career, { playerId: c.p.id, fromId: c.seller?.id ?? null, toId: buyer.id, fee: c.fee })
-    moves.push(c)
-    // Make room: the replaced starter is sometimes sold off to the pool.
-    if (buyer.players.length > 25 && rng.chance(0.5)) transferPlayer(world, career, { playerId: weak.id, fromId: buyer.id, toId: null })
   }
   return moves
 }

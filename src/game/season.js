@@ -319,6 +319,9 @@ export function startNextSeason(world, career) {
     t.finances.lastIncome = Math.round(income * 100) / 100
     t.finances.lastWages = Math.round(wages * 100) / 100
     t.finances.budget = Math.round((t.finances.budget + income - wages) * 100) / 100
+    // AI clubs reinvest big surpluses (stadium, academy, staff) instead of hoarding cash.
+    const cap = Math.max(8, t.finances.baseIncome * 2)
+    if (t.id !== career.userTeamId && t.finances.budget > cap) t.finances.budget = Math.round((t.finances.budget - (t.finances.budget - cap) * 0.35) * 100) / 100
   }
 
   // Clubs outside this competition keep developing as if they had played a season.
@@ -382,6 +385,8 @@ export function startNextSeason(world, career) {
 function yearRollover(world, career, rng, summary) {
   const userId = career.userTeamId
   for (const t of world.teams) {
+    // Club income slowly follows the size of the squad it pays for.
+    if (t.finances?.baseIncome) t.finances.baseIncome = Math.round((t.finances.baseIncome * 0.8 + (wageBill(t) * 1.02 + 0.4) * 0.2) * 100) / 100
     for (const p of t.players.slice()) {
       p.age++
       p.contract = (p.contract ?? 1) - 1
