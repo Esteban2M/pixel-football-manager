@@ -78,6 +78,7 @@ export default function TeamSelect({ nav }) {
                   <span>{t.name}</span>
                   <Ovr value={teamStrength(t)} />
                   {t.generated && <span className="small muted">plantilla generada</span>}
+                  {t.confidence === 'parcial' && <span className="small muted">plantilla parcial</span>}
                 </button>
               ))}
           </div>

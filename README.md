@@ -163,7 +163,13 @@ scripts/simulate.js   headless batch simulation for tuning
 
 ## About the data
 
-- **Liga MX clubs:** the 18 Apertura 2026 teams are included; Atlante replaces Mazatlán FC. Names, colours, nicknames and coaches at the start of the tournament are real. Atlas's and Santos's coaches were reported inconsistently by the press. The squads of the 16 clubs other than Cruz Azul and América are **generated**, calibrated to a plausible team rating. Replace them with real squads through JSON import.
+- **Liga MX clubs:** all 18 Apertura 2026 teams are included; Atlante replaces Mazatlán FC. Names, colours, nicknames and coaches at the start of the tournament are real. Atlas's and Santos's coaches were reported inconsistently by the press.
+- **Real squads of the other 16 clubs:** they live in `src/data/ligamx-rosters.js`, a `pfm-teams` JSON document. The game loads it through the same importer you use, and you can download it from *Import / export*. Sources are TV Azteca, Mediotiempo, Informador, El Siglo de Torreón, Infobae, SI, Excelsior, Récord, VAVEL and fichajes.com, as of July–October 2026. Each club is tagged with a `confidence` level:
+  - `alta`: Chivas, Atlas, Santos, Querétaro and Atlante. These match a published squad list.
+  - `media`: Toluca, Tigres, Monterrey, Pachuca, Pumas and Tijuana. These have the core squad plus confirmed signings, and may still include someone who has left.
+  - `parcial`: León, Necaxa, San Luis, Juárez and Puebla. Only a handful of names could be verified, so the squad is topped up to 22 with generated players a little below the club's level.
+
+  Ratings are gameplay estimates. Shirt numbers only appear where they were reported, and age and height are defaults. Correct or complete the squads by editing that JSON and re-importing it.
 - **Rosters:** these are the squads registered for the Apertura 2026, as published by the clubs and the press up to September/October 2026, with shirt numbers. América's late additions are included: Carlos Álvarez, Óscar Perea, Edwin Cerrillo and Miguel Borja. The coaches are Joel Huiqui (Cruz Azul) and Guillermo Almada (América). Known long-term injuries are modelled: Malagón (Achilles) and Dávila (ACL).
 - **Attributes:** these are gameplay estimates, not official ratings. Edit them freely.
 - **Physique:** heights come from ESPN's 2026-27 squad pages, and a few marked `~` in `teams.js` are estimates. Height and strength determine the sprite's size and build. Height also matters in aerial duels.

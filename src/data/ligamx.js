@@ -5,6 +5,8 @@ import { generateSquad } from '../game/generate.js'
 import { DEFAULT_TACTICS, FORMATION_ROLES } from '../game/formations.js'
 import { clubCrest } from './crests.js'
 import { teamStrength } from '../game/team.js'
+import { normalizeTeam } from '../game/io.js'
+import { LIGA_MX_ROSTERS } from './ligamx-rosters.js'
 
 // [id, name, short, nickname, coach, shirt, trim, pattern(0 plain,1 stripes,2 hoops,3 sash,4 halves), shorts, socks, crestStyle, letter, target XI rating, formation, mentality, pressing]
 const CLUBS = [
@@ -55,8 +57,23 @@ export function createLigaMxTeams() {
       if (Math.abs(diff) <= 1) break
       quality += diff / 6
     }
-    return team
+    return applyRealSquad(team, quality)
   })
 }
 
 export const LIGA_MX_IDS = ['america', 'atlante', 'atlas', 'san-luis', 'cruz-azul', 'guadalajara', 'juarez', 'leon', 'monterrey', 'necaxa', 'pachuca', 'puebla', 'pumas', 'queretaro', 'santos', 'tigres', 'tijuana', 'toluca']
+
+// Replaces the generated squad with the real one from ligamx-rosters.js (through the JSON importer).
+// Partially known squads are topped up to 22 with generated players of the club's level.
+function applyRealSquad(team, quality) {
+  const raw = LIGA_MX_ROSTERS.teams.find((t) => t.id === team.id)
+  if (!raw) return team
+  const report = { errors: [], warnings: [], info: [], error: () => {}, warn: () => {}, note: () => {} }
+  // Fillers are squad players: a bit below the average of the known ones.
+  const rated = raw.players.filter((p) => p.rating)
+  const avg = rated.reduce((s, p) => s + p.rating, 0) / (rated.length || 1)
+  const fill = Math.min(quality, avg / 5 - 1.6)
+  const real = normalizeTeam({ ...raw, quality: fill, minSquad: 22 }, team.id, report, new Set(), team)
+  if (!real) return team
+  return { ...team, players: real.players, generated: false, confidence: raw.confidence }
+}

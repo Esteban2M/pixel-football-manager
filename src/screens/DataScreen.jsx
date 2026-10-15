@@ -5,6 +5,7 @@ import { FORMAT_PRESETS } from '../game/formats.js'
 import { TACTICAL_ROLES } from '../game/roles.js'
 import { FORMATIONS } from '../game/formations.js'
 import { ATTRS } from '../game/player.js'
+import { LIGA_MX_ROSTERS } from '../data/ligamx-rosters.js'
 
 function Report({ r }) {
   if (!r) return null
@@ -157,6 +158,12 @@ export default function DataScreen({ nav }) {
               </div>
               <button className="btn ghost sm" onClick={() => downloadJson(exportWorld(world), 'pixel-football-world.json')}>
                 Mundo completo (copia de seguridad)
+              </button>
+              <button className="btn ghost sm" onClick={() => downloadJson(LIGA_MX_ROSTERS, 'liga-mx-apertura-2026.teams.json')} title="Plantillas reales de los 16 clubes, en formato pfm-teams">
+                Plantillas Liga MX Apertura 2026 (fuente)
+              </button>
+              <button className="btn ghost sm" onClick={() => setText(JSON.stringify(LIGA_MX_ROSTERS, null, 2))}>
+                Ver/editar plantillas Liga MX aquí
               </button>
               <div className="row">
                 {Object.entries(FORMAT_PRESETS).map(([k, f]) => (

@@ -2,7 +2,7 @@
 // Import is forgiving: missing data is generated, Spanish or English position names work,
 // and every problem is reported with the path where it happened.
 import { createRng } from './rng.js'
-import { makePlayer, generateAttrs, ATTRS, ROLES, clampAttr, randomAppearance } from './player.js'
+import { makePlayer, generateAttrs, ATTRS, ROLES, clampAttr, randomAppearance, roleRating } from './player.js'
 import { generateSquad } from './generate.js'
 import { DEFAULT_TACTICS, FORMATIONS, FORMATION_ROLES } from './formations.js'
 import { TACTICAL_ROLES, bestRoleFor } from './roles.js'
@@ -68,6 +68,19 @@ export function normalizeGrid(raw, path, report) {
   return null
 }
 
+// "rating" means the overall in his main position: nudge the free attributes until it matches.
+export function calibrateAttrs(attrs, role, rating, locked = new Set()) {
+  for (let k = 0; k < 5; k++) {
+    const diff = Math.round((rating - roleRating(attrs, role)) / 5)
+    if (!diff) break
+    for (const { key } of ATTRS) {
+      if (locked.has(key) || (key === 'goalkeeping' && role !== 'GK')) continue
+      attrs[key] = clampAttr(attrs[key] + diff)
+    }
+  }
+  return attrs
+}
+
 export function normalizePlayer(raw, path, report, ctx) {
   if (!raw || typeof raw !== 'object') {
     report.error(`${path}: el jugador debe ser un objeto.`)
@@ -85,16 +98,18 @@ export function normalizePlayer(raw, path, report, ctx) {
     roles.push('CM')
   }
   const rng = createRng(`import-${ctx.teamId}-${name}`)
-  const quality = raw.rating != null ? Math.max(1, Math.min(99, Number(raw.rating))) / 5 : ctx.quality
-  const generated = generateAttrs(roles[0], quality, rng)
+  const rating = raw.rating != null ? Math.max(1, Math.min(99, Number(raw.rating))) : null
+  const generated = generateAttrs(roles[0], rating ? rating / 5 : ctx.quality, rng)
   const given = raw.attributes ?? raw.attrs ?? {}
   const attrs = {}
   for (const { key } of ATTRS) attrs[key] = given[key] != null ? clampAttr(Math.round(Number(given[key]))) : generated[key]
+  if (rating) calibrateAttrs(attrs, roles[0], rating, new Set(Object.keys(given)))
   let number = Number.parseInt(raw.number ?? raw.dorsal, 10)
   if (!Number.isInteger(number) || number < 1 || number > 99 || ctx.numbers.has(number)) {
     if (Number.isInteger(number) && ctx.numbers.has(number)) report.warn(`${path} (${name}): dorsal ${number} repetido; se asignó otro.`)
+    // Free number that no later player asked for explicitly.
     number = 1
-    while (ctx.numbers.has(number)) number++
+    while (ctx.numbers.has(number) || ctx.reserved.has(number)) number++
   }
   ctx.numbers.add(number)
   const look = raw.appearance ?? {}
@@ -125,7 +140,9 @@ export function normalizePlayer(raw, path, report, ctx) {
   return p
 }
 
-export function normalizeTeam(raw, path, report, existingIds = new Set()) {
+// `base`: the team already in the world with the same id. Anything the document leaves out
+// (crest, kits, coach, tactics…) is kept from it, so a JSON can update only the squad.
+export function normalizeTeam(raw, path, report, existingIds = new Set(), base = null) {
   if (!raw || typeof raw !== 'object') {
     report.error(`${path}: el equipo debe ser un objeto.`)
     return null
@@ -136,7 +153,7 @@ export function normalizeTeam(raw, path, report, existingIds = new Set()) {
     return null
   }
   const id = raw.id ? slugify(raw.id) : slugify(name)
-  const short = String(raw.short ?? name.slice(0, 3)).toUpperCase().slice(0, 3)
+  const short = String(raw.short ?? base?.short ?? name.slice(0, 3)).toUpperCase().slice(0, 3)
   const primary = color(raw.colors?.primary ?? raw.kits?.home?.shirt, '#29adff')
   const secondary = color(raw.colors?.secondary ?? raw.kits?.home?.trim, '#ffffff')
   const kit = (k, d) => ({
@@ -146,13 +163,18 @@ export function normalizeTeam(raw, path, report, existingIds = new Set()) {
     shorts: color(k?.shorts, d.shorts),
     socks: color(k?.socks, d.socks),
   })
-  const kits = {
-    home: kit(raw.kits?.home, { shirt: primary, trim: secondary, pattern: 0, shorts: secondary, socks: primary }),
-    away: kit(raw.kits?.away, { shirt: secondary, trim: primary, pattern: 0, shorts: primary, socks: secondary }),
-    gk: color(raw.kits?.gk, '#3d3d3d'),
-  }
+  const kits =
+    base && !raw.kits && !raw.colors
+      ? structuredClone(base.kits)
+      : {
+          home: kit(raw.kits?.home, { shirt: primary, trim: secondary, pattern: 0, shorts: secondary, socks: primary }),
+          away: kit(raw.kits?.away, { shirt: secondary, trim: primary, pattern: 0, shorts: primary, socks: secondary }),
+          gk: color(raw.kits?.gk, '#3d3d3d'),
+        }
   const quality = Number.isFinite(Number(raw.quality)) ? Math.max(5, Math.min(18, Number(raw.quality))) : 12
-  const ctx = { teamId: id, quality, numbers: new Set() }
+  const reserved = new Set((Array.isArray(raw.players) ? raw.players : []).map((pl) => Number.parseInt(pl?.number ?? pl?.dorsal, 10)).filter(Number.isInteger))
+  const ctx = { teamId: id, quality, numbers: new Set(), reserved }
+  const minSquad = Number.isInteger(raw.minSquad) ? Math.max(11, Math.min(40, raw.minSquad)) : 16
   let players = []
   if (Array.isArray(raw.players) && raw.players.length) {
     raw.players.forEach((p, i) => {
@@ -165,11 +187,15 @@ export function normalizeTeam(raw, path, report, existingIds = new Set()) {
       ids.add(p.id)
     }
     if (!players.some((p) => p.roles.includes('GK'))) report.warn(`${path} (${name}): no hay porteros; el equipo jugará con un portero improvisado.`)
-    if (players.length < 16) {
+    if (players.length < minSquad) {
       const extra = generateSquad(quality, `fill-${id}`)
         .filter((p) => !ctx.numbers.has(p.number))
-        .slice(0, 16 - players.length)
-        .map((p, i) => ({ ...p, id: `${id}-gen-${i + 1}` }))
+        .slice(0, minSquad - players.length)
+        .map((p, i) => {
+          // Squad fillers sit around the requested level so they do not outshine the real players.
+          const target = Math.round(quality * 5 + ((i * 7) % 5) - 2)
+          return { ...p, id: `${id}-gen-${i + 1}`, attrs: calibrateAttrs({ ...p.attrs }, p.roles[0], target) }
+        })
       report.warn(`${path} (${name}): solo ${players.length} jugadores; se completó con ${extra.length} generados.`)
       players = players.concat(extra)
     }
@@ -177,12 +203,12 @@ export function normalizeTeam(raw, path, report, existingIds = new Set()) {
     players = generateSquad(quality, `json-${id}`).map((p, i) => ({ ...p, id: `${id}-${i + 1}` }))
     report.note(`${name}: sin "players", se generó una plantilla de nivel ${quality}.`)
   }
-  let formation = raw.tactics?.formation ?? raw.formation ?? DEFAULT_TACTICS.formation
+  let formation = raw.tactics?.formation ?? raw.formation ?? base?.tactics?.formation ?? DEFAULT_TACTICS.formation
   if (!FORMATIONS[formation]) {
     report.warn(`${path} (${name}): formación "${formation}" desconocida; se usó 4-3-3. Disponibles: ${Object.keys(FORMATIONS).join(', ')}`)
     formation = '4-3-3'
   }
-  const t = raw.tactics ?? {}
+  const t = raw.tactics ?? (base && !raw.formation ? base.tactics : {})
   const tactics = {
     ...DEFAULT_TACTICS,
     formation,
@@ -192,15 +218,18 @@ export function normalizeTeam(raw, path, report, existingIds = new Set()) {
     width: Number.isInteger(t.width) ? Math.max(0, Math.min(2, t.width)) : 1,
     roles: Array.isArray(t.roles) && t.roles.length === 11 ? t.roles.map((r, i) => (TACTICAL_ROLES[r] ? r : FORMATION_ROLES[formation][i])) : FORMATION_ROLES[formation].slice(),
   }
-  const crest = (raw.crest && normalizeGrid(raw.crest, `${path}.crest`, report)) || clubCrest({ primary, secondary, letter: name[0], style: 'halves' })
+  const crest =
+    (raw.crest && normalizeGrid(raw.crest, `${path}.crest`, report)) || (base?.crest ? structuredClone(base.crest) : clubCrest({ primary, secondary, letter: name[0], style: 'halves' }))
   if (existingIds.has(id)) report.note(`${name}: ya existía con id "${id}", se actualizará.`)
   return {
     id,
     name,
     short,
-    nickname: String(raw.nickname ?? ''),
-    coach: String(raw.coach ?? 'Sin DT'),
-    custom: true,
+    nickname: String(raw.nickname ?? base?.nickname ?? ''),
+    coach: String(raw.coach ?? base?.coach ?? 'Sin DT'),
+    custom: base ? !!base.custom : true,
+    ...(raw.source || base?.source ? { source: String(raw.source ?? base.source) } : {}),
+    ...(raw.confidence ? { confidence: String(raw.confidence) } : {}),
     kits,
     crest,
     tactics,
@@ -260,6 +289,10 @@ export function importData(world, input) {
     else world.teams.push(team)
     report.added.push(`Equipo: ${team.name} (${team.players.length} jugadores)`)
   }
+  const findBase = (t) => {
+    const id = t?.id ? slugify(t.id) : t?.name ? slugify(t.name) : null
+    return id ? world.teams.find((x) => x.id === id) ?? null : null
+  }
   const lookup = (ref) => {
     if (!ref) return null
     const s = slugify(ref)
@@ -294,7 +327,7 @@ export function importData(world, input) {
     const list = type === 'pfm-teams' ? (Array.isArray(data) ? data : data.teams ?? []) : [data.team ?? data]
     const existing = new Set(world.teams.map((t) => t.id))
     list.forEach((t, i) => {
-      const n = isFullTeam(t) ? hydrate(t) : normalizeTeam(t, type === 'pfm-teams' ? `teams[${i}]` : 'team', report, existing)
+      const n = isFullTeam(t) ? hydrate(t) : normalizeTeam(t, type === 'pfm-teams' ? `teams[${i}]` : 'team', report, existing, findBase(t))
       if (n) upsertTeam(n)
     })
     return report
@@ -303,7 +336,7 @@ export function importData(world, input) {
     const existing = new Set(world.teams.map((t) => t.id))
     ;(data.teams ?? []).forEach((t, i) => {
       if (typeof t === 'string') return
-      const n = isFullTeam(t) ? hydrate(t) : normalizeTeam(t, `teams[${i}]`, report, existing)
+      const n = isFullTeam(t) ? hydrate(t) : normalizeTeam(t, `teams[${i}]`, report, existing, findBase(t))
       if (n) upsertTeam(n)
     })
     const n = normalizeLeague(data.league ?? data, 'league', report, lookup)

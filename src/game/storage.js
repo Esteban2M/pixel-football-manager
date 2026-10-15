@@ -4,7 +4,7 @@ import { FORMAT_PRESETS } from './formats.js'
 
 const KEY = 'pixel-football-manager/world-v1'
 
-const VERSION = 3
+const VERSION = 4
 
 export function defaultLeagues() {
   return [
@@ -53,6 +53,18 @@ export function migrateWorld(w) {
   w.leagues ??= []
   for (const l of defaultLeagues()) if (!w.leagues.some((x) => x.id === l.id)) w.leagues.push(l)
   if (w.career && !w.career.competition) w.career = null
+  // v3 → v4: real Apertura 2026 squads for the 16 clubs that had generated ones (unless the user edited them).
+  if (w.version < 4) {
+    for (const fresh of createLigaMxTeams()) {
+      const t = w.teams.find((x) => x.id === fresh.id)
+      if (t && t.generated) {
+        t.players = fresh.players
+        t.lineup = null
+        t.generated = false
+        t.confidence = fresh.confidence
+      }
+    }
+  }
   w.version = VERSION
   return w
 }

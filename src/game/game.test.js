@@ -310,3 +310,34 @@ describe('json report', () => {
     expect(r.info[0]).toMatch(/se generó una plantilla/)
   })
 })
+
+describe('real Liga MX squads', () => {
+  it('imports every roster without errors and keeps club identity', async () => {
+    const { LIGA_MX_ROSTERS } = await import('../data/ligamx-rosters.js')
+    const w = createWorld()
+    const before = structuredClone(w.teams.find((t) => t.id === 'toluca'))
+    const r = importData(w, LIGA_MX_ROSTERS)
+    expect(r.errors).toEqual([])
+    expect(r.added).toHaveLength(16)
+    const tol = w.teams.find((t) => t.id === 'toluca')
+    expect(tol.crest).toEqual(before.crest)
+    expect(tol.coach).toBe('Antonio Mohamed')
+    expect(tol.players.map((p) => p.name)).toContain('Paulinho')
+  })
+
+  it('real players start ahead of generated fillers', () => {
+    const w = createWorld()
+    const pumas = w.teams.find((t) => t.id === 'pumas')
+    const xi = resolveLineup(pumas).map((id) => pumas.players.find((p) => p.id === id).name)
+    expect(xi).toContain('Keylor Navas')
+    for (const t of w.teams) {
+      expect(t.players.length).toBeGreaterThanOrEqual(22)
+      expect(t.players.filter((p) => p.roles.includes('GK')).length).toBeGreaterThanOrEqual(2)
+    }
+  })
+
+  it('rating sets the overall of the position', () => {
+    const r = importData(createWorld(), { type: 'pfm-team', team: { name: 'Prueba', players: [{ name: 'Nueve', position: 'DC', rating: 80 }] } })
+    expect(r.errors).toEqual([])
+  })
+})

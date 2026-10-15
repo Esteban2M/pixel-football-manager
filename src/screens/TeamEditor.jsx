@@ -8,6 +8,7 @@ import SquadTable from '../components/SquadTable.jsx'
 import { randomPlayer, generateSquad } from '../game/generate.js'
 import { ROLES, ROLE_KEYS } from '../game/player.js'
 import { createBaseTeams } from '../data/teams.js'
+import { createLigaMxTeams } from '../data/ligamx.js'
 import { exportTeam, downloadJson, slugify } from '../game/io.js'
 
 function KitEditor({ kit, onChange, label }) {
@@ -90,7 +91,7 @@ export default function TeamEditor({ nav, params }) {
   }
 
   const restoreBase = () => {
-    const base = createBaseTeams().find((t) => t.id === team.id)
+    const base = [...createBaseTeams(), ...createLigaMxTeams()].find((t) => t.id === team.id)
     if (base) patch((t) => Object.assign(t, base))
   }
 
