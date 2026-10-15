@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { ATTRS, ROLES, ROLE_KEYS, overall, roleRating, randomAppearance } from '../game/player.js'
 import { SKIN_TONES, HAIR_COLORS, HAIR_STYLES, BEARD_STYLES } from '../pixel/palette.js'
 import { NATIONALITIES } from '../data/names.js'
-import { Modal, PixelCanvas, PitchSpritePreview, Ovr, Bar, playerPortraitGrid } from './Pixel.jsx'
+import { Modal, PixelCanvas, PitchSpritePreview, Ovr, Bar, Stars, playerPortraitGrid } from './Pixel.jsx'
+import { playerValue, potentialStars, formatMoney } from '../game/economy.js'
 import PixelEditor from './PixelEditor.jsx'
 import { bodyOf } from '../pixel/sprites.js'
 import { TACTICAL_ROLES, rolesForSlot, roleSuitability } from '../game/roles.js'
 
-export default function PlayerModal({ player, team, onSave, onDelete, onClose, editable = true }) {
+export default function PlayerModal({ player, team, onSave, onDelete, onClose, editable = true, actions = null }) {
   const [draft, setDraft] = useState(() => structuredClone(player))
   const [drawing, setDrawing] = useState(false)
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
@@ -223,6 +224,36 @@ export default function PlayerModal({ player, team, onSave, onDelete, onClose, e
                   🎲 Apariencia aleatoria
                 </button>
               </div>
+            </div>
+          )}
+
+          {draft.potential != null && (
+            <div>
+              <h3>Contrato y valor</h3>
+              <div className="grid" style={{ gap: 6 }}>
+                <div className="row small">
+                  Potencial <span className="spacer" />
+                  <Stars value={potentialStars(draft)} />
+                </div>
+                <div className="row small">
+                  Valor de mercado <span className="spacer" />
+                  <b className="money">{formatMoney(playerValue(draft))}</b>
+                </div>
+                <div className="row small">
+                  Salario <span className="spacer" />
+                  <span className="money">{formatMoney(draft.wage)}/año</span>
+                </div>
+                <div className="row small">
+                  Contrato <span className="spacer" />
+                  {draft.contract > 0 ? `${draft.contract} temporada(s)` : 'Libre'}
+                </div>
+                {draft.totals?.apps > 0 && (
+                  <div className="row small muted">
+                    Carrera: {draft.totals.apps} PJ · {draft.totals.goals} G · {draft.totals.assists} A
+                  </div>
+                )}
+              </div>
+              {actions}
             </div>
           )}
 

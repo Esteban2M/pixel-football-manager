@@ -102,3 +102,16 @@ const MORALE = { '-2': '😣', '-1': '😕', 0: '😐', 1: '🙂', 2: '😄' }
 export function MoraleIcon({ value }) {
   return <span title={`Moral ${value}`}>{MORALE[value] ?? '😐'}</span>
 }
+
+// Potential in stars (0.5–5).
+export function Stars({ value }) {
+  const full = Math.floor(value)
+  const half = value - full >= 0.5
+  return (
+    <span className="stars" title={`Potencial ${value} / 5`}>
+      {'★'.repeat(full)}
+      {half ? '½' : ''}
+      <span className="off">{'★'.repeat(5 - full - (half ? 1 : 0))}</span>
+    </span>
+  )
+}

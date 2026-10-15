@@ -940,3 +940,75 @@ code {
 .panel.champion {
   background: linear-gradient(135deg, #7a5c00, #2a2f7a 70%);
 }
+
+/* ---------- career mode ---------- */
+.stars {
+  color: var(--accent);
+  letter-spacing: -1px;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.stars .off {
+  color: var(--line, #444);
+  opacity: 0.45;
+}
+.delta-up {
+  color: var(--good);
+  font-weight: 700;
+}
+.delta-down {
+  color: var(--bad);
+  font-weight: 700;
+}
+.money {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.money.neg {
+  color: var(--bad);
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+.filters .field {
+  min-width: 110px;
+}
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.kpi {
+  border: 2px solid #000;
+  background: var(--panel2);
+  padding: 10px;
+}
+.kpi .label {
+  font-size: 12px;
+  opacity: 0.75;
+}
+.kpi .value {
+  font-family: var(--px);
+  font-size: 12px;
+  margin-top: 6px;
+}
+.offer-msg {
+  border: 2px solid #000;
+  padding: 8px 10px;
+  margin-top: 10px;
+  background: var(--panel2);
+}
+.offer-msg.accepted {
+  border-color: var(--good);
+}
+.offer-msg.counter {
+  border-color: var(--accent);
+}
+.offer-msg.rejected,
+.offer-msg.refused {
+  border-color: var(--bad);
+}

@@ -1,10 +1,12 @@
 import { createBaseTeams } from '../data/teams.js'
 import { createLigaMxTeams, LIGA_MX_IDS } from '../data/ligamx.js'
 import { FORMAT_PRESETS } from './formats.js'
+import { ensureEconomy } from './economy.js'
+import { ensureCareer } from './season.js'
 
 const KEY = 'pixel-football-manager/world-v1'
 
-const VERSION = 4
+const VERSION = 5
 
 export function defaultLeagues() {
   return [
@@ -28,7 +30,9 @@ export function defaultLeagues() {
 }
 
 export function createWorld() {
-  return { version: VERSION, teams: [...createBaseTeams(), ...createLigaMxTeams()], leagues: defaultLeagues(), career: null, gallery: [] }
+  const world = { version: VERSION, teams: [...createBaseTeams(), ...createLigaMxTeams()], leagues: defaultLeagues(), career: null, gallery: [] }
+  ensureEconomy(world)
+  return world
 }
 
 export function migrateWorld(w) {
@@ -65,6 +69,9 @@ export function migrateWorld(w) {
       }
     }
   }
+  // v4 → v5: career mode (values, wages, contracts, potential, budgets, free agents).
+  ensureEconomy(w)
+  ensureCareer(w, w.career)
   w.version = VERSION
   return w
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useWorld } from '../state/WorldContext.jsx'
-import { nextUserFixture, topScorers, applyResult, completeRound, currentFixtures, userResults } from '../game/season.js'
+import { nextUserFixture, topScorers, applyResult, completeRound, currentFixtures, userResults, startNextSeason, finalPositions } from '../game/season.js'
 import { groupTable, currentStage, findFixture, teamStatus } from '../game/competition.js'
 import { simulateMatch } from '../game/engine/match.js'
 import { Crest, Ovr } from '../components/Pixel.jsx'
@@ -8,6 +8,10 @@ import SquadTable from '../components/SquadTable.jsx'
 import TacticsBoard from '../components/TacticsBoard.jsx'
 import PlayerModal from '../components/PlayerModal.jsx'
 import { teamStrength } from '../game/team.js'
+import { overall } from '../game/player.js'
+import { windowOpen } from '../game/market.js'
+import MarketTab, { Money } from './MarketTab.jsx'
+import ClubTab from './ClubTab.jsx'
 
 // Zone colour for a table position; negative positions count from the bottom.
 function zoneFor(zones, pos, size) {
@@ -143,7 +147,100 @@ const TABS = [
   ['tactics', 'Tácticas'],
   ['fixtures', 'Calendario'],
   ['table', 'Clasificación'],
+  ['market', 'Mercado'],
+  ['club', 'Club'],
 ]
+
+function ProgressList({ title, items, empty }) {
+  return (
+    <div>
+      <h3>{title}</h3>
+      {items.length ? (
+        items.map((x, i) => (
+          <div key={i} className="small">
+            {x}
+          </div>
+        ))
+      ) : (
+        <p className="small muted">{empty}</p>
+      )}
+    </div>
+  )
+}
+
+// End of season: who improved, who declined, whose contract is running out.
+function SeasonReview({ world, career, team, champion, onNext, onNew }) {
+  const pos = finalPositions(career)[team.id]
+  const changes = team.players
+    .map((p) => ({ p, d: overall(p) - (p.seasonStartOvr ?? overall(p)) }))
+    .filter((x) => x.d !== 0)
+    .sort((a, b) => b.d - a.d)
+  const expiring = career.half === 1 || career.seasonsPerYear === 1 ? team.players.filter((p) => p.contract <= 1) : []
+  return (
+    <div className="panel champion">
+      <h2>🏆 ¡{champion.name} campeón!</h2>
+      <div className="row">
+        <Crest team={champion} size={64} />
+        <p>
+          {champion.id === team.id ? '¡Lo lograste! Tu equipo levanta el título.' : `${career.name} terminó. ${team.name} no consiguió el título esta vez.`}
+          {pos ? ` Posición final en la fase regular: ${pos}º.` : ''}
+        </p>
+      </div>
+      <div className="grid cols-2" style={{ marginTop: 10 }}>
+        <ProgressList
+          title="Progresión de la temporada"
+          items={changes.slice(0, 8).map(({ p, d }) => (
+            <span>
+              <span className={d > 0 ? 'delta-up' : 'delta-down'}>{d > 0 ? `▲${d}` : `▼${-d}`}</span> {p.name} ({p.seasonStartOvr} → {overall(p)})
+            </span>
+          ))}
+          empty="Sin cambios de media esta temporada."
+        />
+        <ProgressList
+          title="Contratos que terminan"
+          items={expiring.map((p) => `⚠️ ${p.name} (${p.age} años, ${overall(p)}) se irá libre si no renuevas`)}
+          empty="Ningún contrato vence al cerrar esta temporada."
+        />
+      </div>
+      <p className="small muted">El mercado está abierto: ficha, vende y renueva antes de empezar la siguiente temporada. Al pasar de año los jugadores cumplen años, algunos veteranos se retiran y suben juveniles de la cantera.</p>
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="btn primary" onClick={onNext}>
+          ▶ Siguiente temporada
+        </button>
+        <button className="btn ghost" onClick={onNew}>
+          Nueva carrera
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function PreseasonSummary({ summary, onClose }) {
+  const lines = [
+    ...summary.retired.map((p) => `👋 ${p.name} se retiró (${p.age} años)`),
+    ...summary.expired.map((p) => `📄 ${p.name} se fue libre al terminar su contrato`),
+    ...summary.youth.map((p) => `🌱 Cantera: ${p.name} (${p.role}, media ${p.ovr}, potencial ${p.potential})`),
+  ]
+  return (
+    <div className="panel">
+      <div className="row">
+        <h3 style={{ margin: 0 }}>Resumen de pretemporada · tras {summary.label}</h3>
+        <span className="spacer" />
+        <button className="btn ghost sm" onClick={onClose}>
+          Ocultar
+        </button>
+      </div>
+      {lines.map((l, i) => (
+        <div key={i} className="small">
+          {l}
+        </div>
+      ))}
+      <div className="small muted" style={{ marginTop: 6 }}>
+        Los clubes de la IA cerraron {summary.aiMoves} fichaje(s). Revisa «Mercado → Movimientos».
+      </div>
+    </div>
+  )
+}
 
 export default function Hub({ nav }) {
   const { world, update } = useWorld()
@@ -216,6 +313,16 @@ export default function Hub({ nav }) {
         <span className="chip">
           {comp.finished ? 'Finalizado' : `${stage.name} · Fecha ${career.matchdayNo}`}
         </span>
+        {team.finances && (
+          <span className="chip" title="Presupuesto para fichajes">
+            💰 <Money value={team.finances.budget} />
+          </span>
+        )}
+        {windowOpen(career) && (
+          <button className="chip" style={{ cursor: 'pointer', borderColor: 'var(--good)' }} onClick={() => setTab('market')}>
+            Mercado abierto
+          </button>
+        )}
       </div>
       <div className="tabs">
         {TABS.map(([id, label]) => (
@@ -233,19 +340,22 @@ export default function Hub({ nav }) {
       {tab === 'home' && (
         <div className="grid cols-main">
           <div className="grid" style={{ gap: 16, alignContent: 'start' }}>
+            {career.summary && career.matchdayNo <= 2 && !comp.finished && (
+              <PreseasonSummary summary={career.summary} onClose={() => update((w) => (w.career.summary = null))} />
+            )}
             {champion ? (
-              <div className="panel champion">
-                <h2>🏆 ¡{champion.name} campeón!</h2>
-                <div className="row">
-                  <Crest team={champion} size={64} />
-                  <p>{champion.id === team.id ? '¡Lo lograste! Tu equipo levanta el título.' : `${career.name} terminó. ${team.name} no consiguió el título esta vez.`}</p>
-                </div>
-                <div className="row" style={{ marginTop: 12 }}>
-                  <button className="btn primary" onClick={() => nav('select')}>
-                    Nueva temporada
-                  </button>
-                </div>
-              </div>
+              <SeasonReview
+                world={world}
+                career={career}
+                team={team}
+                champion={champion}
+                onNew={() => nav('select')}
+                onNext={() =>
+                  update((w) => {
+                    startNextSeason(w, w.career)
+                  })
+                }
+              />
             ) : fixture ? (
               <div className="panel">
                 <h2>
@@ -371,7 +481,7 @@ export default function Hub({ nav }) {
       {tab === 'squad' && (
         <div className="panel">
           <h2>Plantilla · {team.players.length} jugadores</h2>
-          <SquadTable team={team} onSelect={setPlayer} />
+          <SquadTable team={team} onSelect={setPlayer} economy />
         </div>
       )}
 
@@ -435,6 +545,10 @@ export default function Hub({ nav }) {
             )}
         </div>
       )}
+
+      {tab === 'market' && <MarketTab world={world} career={career} update={update} />}
+
+      {tab === 'club' && <ClubTab world={world} career={career} team={team} />}
 
       {tab === 'bracket' && koStage && (
         <div className="panel">

@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { createRng } from './rng.js'
-import { roundRobin, createCareer, completeRound, standings, nextUserFixture, applyResult } from './season.js'
+import { roundRobin, createCareer, completeRound, standings, nextUserFixture, applyResult, startNextSeason } from './season.js'
+import { develop, playerValue } from './economy.js'
+import { askingPrice, evaluateOffer, completePurchase, windowOpen } from './market.js'
+import { makePlayer, generateAttrs, overall } from './player.js'
 import { createCompetition, currentMatchday, advance, bracketOrder } from './competition.js'
 import { FORMAT_PRESETS, normalizeFormat } from './formats.js'
 import { importData, exportTeam, exportLeague, exportWorld, EXAMPLE_TEAM, EXAMPLE_LEAGUE } from './io.js'
@@ -339,5 +342,100 @@ describe('real Liga MX squads', () => {
   it('rating sets the overall of the position', () => {
     const r = importData(createWorld(), { type: 'pfm-team', team: { name: 'Prueba', players: [{ name: 'Nueve', position: 'DC', rating: 80 }] } })
     expect(r.errors).toEqual([])
+  })
+})
+
+describe('career mode', () => {
+  const playSeason = (w, c) => {
+    for (let g = 0; g < 80 && !c.finished; g++) completeRound(w, c)
+  }
+
+  it('young players with potential grow, veterans decline', () => {
+    const rng = createRng('dev')
+    const kid = makePlayer({ id: 'k', name: 'Kid', short: 'Kid', number: 9, age: 18, roles: ['ST'], attrs: generateAttrs('ST', 9, rng) })
+    kid.potential = overall(kid) + 20
+    const vet = makePlayer({ id: 'v', name: 'Vet', short: 'Vet', number: 10, age: 34, roles: ['CM'], attrs: generateAttrs('CM', 15, rng) })
+    vet.potential = overall(vet)
+    const k0 = overall(kid)
+    const v0 = overall(vet)
+    for (let i = 0; i < 40; i++) {
+      develop(kid, 1 / 20, 1, rng)
+      develop(vet, 1 / 20, 1, rng)
+    }
+    expect(overall(kid)).toBeGreaterThan(k0 + 8)
+    expect(overall(kid)).toBeLessThanOrEqual(kid.potential)
+    expect(overall(vet)).toBeLessThan(v0)
+  })
+
+  it('values and wages grow with quality', () => {
+    const w = createWorld()
+    const all = w.teams.flatMap((t) => t.players)
+    const best = all.reduce((a, b) => (overall(b) > overall(a) ? b : a))
+    const worst = all.reduce((a, b) => (overall(b) < overall(a) ? b : a))
+    expect(playerValue(best)).toBeGreaterThan(playerValue(worst) * 5)
+    expect(w.teams.every((t) => t.finances.budget > 0)).toBe(true)
+    expect(w.freeAgents.length).toBeGreaterThan(10)
+  })
+
+  it('buys a player: counter-offer, acceptance, budgets and squads update', () => {
+    const w = createWorld()
+    const c = createCareer(w, 'liga-mx-a26', 'cruz-azul')
+    const user = w.teams.find((t) => t.id === 'cruz-azul')
+    user.finances.budget = 200
+    const seller = w.teams.find((t) => t.id === 'necaxa')
+    const target = seller.players.find((p) => p.roles[0] === 'ST')
+    const ask = askingPrice(seller, target)
+    expect(evaluateOffer(w, c, { playerId: target.id, fee: ask * 0.5 }).status).toBe('rejected')
+    expect(evaluateOffer(w, c, { playerId: target.id, fee: ask * 0.9 }).status).toBe('counter')
+    const n = user.players.length
+    const sellerBudget = seller.finances.budget
+    expect(completePurchase(w, c, target.id, ask).status).toBe('accepted')
+    expect(user.players.some((p) => p.id === target.id)).toBe(true)
+    expect(seller.players.some((p) => p.id === target.id)).toBe(false)
+    expect(user.players.length).toBe(n + 1)
+    expect(user.finances.budget).toBeCloseTo(200 - ask, 1)
+    expect(seller.finances.budget).toBeCloseTo(sellerBudget + ask, 1)
+    expect(new Set(user.players.map((p) => p.number)).size).toBe(user.players.length)
+    expect(c.transfers.at(-1)).toMatchObject({ playerId: target.id, from: 'necaxa', to: 'cruz-azul' })
+  })
+
+  it('refuses when the window is closed or the budget is short', () => {
+    const w = createWorld()
+    const c = createCareer(w, 'liga-mx-a26', 'cruz-azul')
+    const target = w.teams.find((t) => t.id === 'toluca').players[0]
+    w.teams.find((t) => t.id === 'cruz-azul').finances.budget = 0.01
+    expect(evaluateOffer(w, c, { playerId: target.id, fee: 50 }).status).toBe('refused')
+    c.matchdayNo = 8
+    expect(windowOpen(c)).toBe(false)
+  })
+
+  it('chains seasons: ageing, history, new competition, valid squads', () => {
+    const w = createWorld()
+    const c = createCareer(w, 'liga-mx-a26', 'cruz-azul')
+    const someone = w.teams.find((t) => t.id === 'america').players[0]
+    const age0 = someone.age
+    playSeason(w, c)
+    expect(c.finished).toBe(true)
+    startNextSeason(w, c)
+    expect(c.seasonLabel).toBe('Clausura 2027')
+    expect(c.name).toBe('Liga MX · Clausura 2027')
+    expect(c.finished).toBe(false)
+    expect(c.history).toHaveLength(1)
+    playSeason(w, c)
+    startNextSeason(w, c)
+    expect(c.seasonLabel).toBe('Apertura 2027')
+    const found = w.teams.flatMap((t) => t.players).find((p) => p.id === someone.id) ?? w.freeAgents.find((p) => p.id === someone.id)
+    if (found) expect(found.age).toBe(age0 + 1)
+    for (const t of w.teams) {
+      expect(t.players.length).toBeGreaterThanOrEqual(18)
+      expect(t.players.filter((p) => p.roles[0] === 'GK').length).toBeGreaterThanOrEqual(2)
+      expect(new Set(t.players.map((p) => p.id)).size).toBe(t.players.length)
+    }
+    // Every player id exists only once in the world.
+    const ids = [...w.teams.flatMap((t) => t.players), ...w.freeAgents].map((p) => p.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(c.transfers.length).toBeGreaterThan(0)
+    playSeason(w, c)
+    expect(c.finished).toBe(true)
   })
 })

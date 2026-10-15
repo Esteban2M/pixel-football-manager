@@ -161,3 +161,7 @@ export function generateAttrs(role, quality, rng) {
 export function clampAttr(v) {
   return Math.max(1, Math.min(20, v))
 }
+
+export function roleWeights(role) {
+  return ROLE_WEIGHTS[role] ?? ROLE_WEIGHTS.CM
+}

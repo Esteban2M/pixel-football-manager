@@ -1,10 +1,18 @@
 import { ROLES, overall } from '../game/player.js'
 import { getRole } from '../game/roles.js'
-import { Portrait, Ovr, Bar, MoraleIcon } from './Pixel.jsx'
+import { Portrait, Ovr, Bar, MoraleIcon, Stars } from './Pixel.jsx'
+import { playerValue, potentialStars, formatMoney } from '../game/economy.js'
 
 const ORDER = ['GK', 'CB', 'LB', 'RB', 'DM', 'CM', 'AM', 'LW', 'RW', 'ST']
 
-export default function SquadTable({ team, onSelect }) {
+export function Delta({ player }) {
+  if (player.seasonStartOvr == null) return null
+  const d = overall(player) - player.seasonStartOvr
+  if (!d) return null
+  return <span className={d > 0 ? 'delta-up' : 'delta-down'}>{d > 0 ? `▲${d}` : `▼${-d}`}</span>
+}
+
+export default function SquadTable({ team, onSelect, economy = false }) {
   const players = team.players
     .slice()
     .sort((a, b) => ORDER.indexOf(a.roles[0]) - ORDER.indexOf(b.roles[0]) || overall(b) - overall(a))
@@ -21,6 +29,9 @@ export default function SquadTable({ team, onSelect }) {
             <th className="num">Alt.</th>
             <th>Rol pref.</th>
             <th className="num">Med</th>
+            {economy && <th>Pot.</th>}
+            {economy && <th className="num">Valor</th>}
+            {economy && <th className="num">Contr.</th>}
             <th>Condición</th>
             <th>Moral</th>
             <th className="num">PJ</th>
@@ -52,8 +63,19 @@ export default function SquadTable({ team, onSelect }) {
               <td className="num small">{p.height ? (p.height / 100).toFixed(2) : '—'}</td>
               <td className="small">{p.prefRole ? getRole(p.prefRole).name : '—'}</td>
               <td className="num">
-                <Ovr value={overall(p)} />
+                <Ovr value={overall(p)} /> <Delta player={p} />
               </td>
+              {economy && (
+                <td>
+                  <Stars value={potentialStars(p)} />
+                </td>
+              )}
+              {economy && <td className="num money small">{formatMoney(playerValue(p))}</td>}
+              {economy && (
+                <td className="num small" style={p.contract <= 1 ? { color: 'var(--warn)' } : undefined}>
+                  {p.contract ?? '—'}
+                </td>
+              )}
               <td>
                 <Bar value={p.condition} />
               </td>
@@ -71,6 +93,7 @@ export default function SquadTable({ team, onSelect }) {
                   </span>
                 )}
                 {p.suspension > 0 && <span className="badge warn">SUSP</span>}
+                {p.listed && <span className="badge warn">VENTA</span>}
               </td>
             </tr>
           ))}

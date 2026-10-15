@@ -44,7 +44,7 @@ export default function TeamSelect({ nav }) {
         <button className="btn ghost sm" onClick={() => nav('menu')}>
           ← Menú
         </button>
-        <span className="title">Nueva temporada</span>
+        <span className="title">Modo carrera</span>
         <button className="btn ghost sm" onClick={() => nav('leagues')}>
           Gestionar ligas
         </button>
@@ -86,9 +86,9 @@ export default function TeamSelect({ nav }) {
       )}
       <div className="row" style={{ marginTop: 16 }}>
         <span className="spacer" />
-        {world.career && !world.career.finished && <span className="small muted">Esto reemplaza la temporada en curso.</span>}
+        {world.career && <span className="small muted">Esto reemplaza la carrera en curso.</span>}
         <button className="btn primary" disabled={!teamId || teams.length < 2} onClick={start}>
-          Empezar temporada
+          Empezar carrera
         </button>
       </div>
     </div>

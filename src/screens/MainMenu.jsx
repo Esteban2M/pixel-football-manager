@@ -41,13 +41,13 @@ export default function MainMenu({ nav }) {
           </div>
         </div>
         <div className="menu-buttons">
-          {career && !career.finished && (
+          {career && (
             <button className="btn primary" onClick={() => nav('hub')}>
-              ▶ Continuar · {userTeam?.short} · Fecha {career.matchdayNo}
+              ▶ Continuar · {userTeam?.short} · {career.seasonLabel ?? ''} · {career.finished ? 'Fin de temporada' : `Fecha ${career.matchdayNo}`}
             </button>
           )}
-          <button className={`btn ${career && !career.finished ? '' : 'primary'}`} onClick={() => nav('select')}>
-            Nueva temporada
+          <button className={`btn ${career ? '' : 'primary'}`} onClick={() => nav('select')}>
+            Nuevo modo carrera
           </button>
           <button className="btn" onClick={() => nav('friendly')}>
             Partido amistoso

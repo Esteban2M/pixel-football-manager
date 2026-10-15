@@ -20,7 +20,7 @@ npm run build      # production build in dist/
 
 | Mode | What it does |
 | --- | --- |
-| **New season** | Pick a competition (Liga MX Apertura 2026, Copa Pixel MX or any league you create or import), then a club. |
+| **Career mode** | Pick a competition (Liga MX Apertura 2026, Copa Pixel MX or any league you create or import), then a club. Seasons chain into each other: players develop, age and retire, and you buy, sell and renew in the transfer market. |
 | **Leagues & tournaments** | Create or edit competitions by choosing the teams, a format preset, and the details of each stage. A live preview shows how many matchdays and matches the format produces. |
 | **Import / export JSON** | Load teams, leagues, formats or a full backup from a `.json` file. The data is validated first, with clear messages, and anything can be exported. |
 | **Friendly** | Any two teams. You can manage either side or just watch. |
@@ -49,6 +49,30 @@ In the match engine (`src/game/roles.js`), a role changes how high and how wide 
 - **Tactics:** 5 formations (4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2), plus mentality, pressing, tempo and width. To build the lineup, tap a slot, then tap another slot or a player.
 - **During the match:** you can change tactics, make up to 5 substitutions, and give a team talk at half-time that affects morale. Speeds are ×1/×2/×4/×8, the camera can zoom and follow the ball, shirt numbers can be shown, and you can simulate the rest of the match.
 - **Between matches:** players carry fitness (condition), morale, injuries and suspensions over to the next game. Season stats are tracked (apps, goals, assists, average rating), along with the league table, top scorers and news.
+
+## Career mode
+
+Each season runs on a competition. When it ends, **Next season** starts the following one: Apertura and Clausura alternate for Liga MX; other leagues use `2026/27` style labels.
+
+- **Progression.** Every player has a hidden **potential**, shown as stars. During the regular phase young players grow towards it, and faster when they play. From about 28 onwards they decline, and pace and stamina go first. The change is spread across the attributes, so the average moves one point at a time. The squad shows ▲/▼ against the start of the season.
+- **New football year.** These happen after the Clausura, or after each season in single-season leagues:
+  - everybody turns a year older;
+  - contracts drop by one;
+  - veterans may retire;
+  - each academy promotes two youngsters, some with real star potential.
+
+  Your players whose contract reaches 0 leave on a free, so renew them in time.
+- **Money.** Budgets are in millions.
+  - Market value depends on the average, age and potential.
+  - Wages are about 12% of value per year.
+  - At the end of each season clubs collect income, based on club size plus prize money for their final position, and pay wages.
+- **Transfer market.** It is open between seasons and for the first 3 matchdays.
+  - **Search** every club in every league plus the free agents. You can filter by league, position, minimum average, maximum age, value or name.
+  - **Bids.** The selling club asks for more for starters. A bid at 85% or more of the asking price gets a counter-offer, and after 3 failed attempts they stop negotiating.
+  - **Refusals.** Clubs do not sell below 18 players or down to one goalkeeper. Stars may refuse a much weaker club.
+  - **Selling.** Put players up for sale to attract bids. Other clubs also make unsolicited offers for your best players.
+  - **Releasing** a player costs half of what is left on his contract.
+- **AI clubs** also trade between seasons. Each one strengthens its weakest starter by buying from other clubs or signing free agents. Every squad is kept playable, with at least 18 players and 2 goalkeepers.
 
 ## League formats
 
@@ -142,6 +166,8 @@ Player attributes use the classic 1-20 scale: pace, stamina, strength, passing, 
 | Greedy assignment (lineups, man-marking) | `src/game/team.js`, `src/game/engine/ai.js` |
 | Steering / arrive behaviour | `src/game/engine/match.js` → `moveAgent` |
 | Point-to-segment distance (passing lanes) | `src/game/engine/geometry.js` |
+| Fractional accumulators (smooth attribute growth) | `src/game/economy.js` → `develop` |
+| Greedy need-based matching (AI transfers) | `src/game/market.js` → `aiTransfers` |
 
 ## Project layout
 
@@ -151,7 +177,9 @@ src/
   game/        players, formations, roles, lineups, storage
     competition.js  stage engine (league / split / swiss / knockout)
     formats.js      format presets + validation
-    season.js       career on top of a competition
+    season.js       career on top of a competition, season rollover
+    economy.js      value, wages, potential, growth/decline, youth, retirements
+    market.js       offers, counter-offers, free agents, AI transfers
     quicksim.js     fast statistical simulation + penalty shoot-outs
     io.js           JSON import / export
     engine/    match simulation: match.js (rules/physics), ai.js (decisions), geometry, commentary
