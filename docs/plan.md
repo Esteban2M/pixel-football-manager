@@ -28,7 +28,7 @@ Tú decides la alineación, la táctica y los fichajes, ves jugar a tu equipo en
 | --- | --- | --- |
 | **0 · Prototipo** | Partido jugable, tácticas, creador pixel art. | ✅ Hecho |
 | **1 · Núcleo de juego** | Ligas configurables, JSON, plantillas reales, modo carrera. | ✅ Hecho |
-| **2 · Validar diversión** | Jugar, anotar y pulir lo que más importa (T-007, T-018, T-008, T-009). | 🔄 **Ahora** |
+| **2 · Validar diversión** | Directiva, carrera del DT, narrativa y pulido del partido (T-008, T-009, T-010, T-011, T-018 ✅); falta el playtest (T-007). | 🔄 **Ahora** |
 | **3 · Preparar la comunidad** | Packs, JSON Schema, IDs con prefijo, guía de creación (T-014, T-015, T-016). | ⏳ |
 | **4 · Primera versión pública** | Datos genéricos, móvil, publicar en la web gratis (T-017, T-020, T-021). | ⏳ Solo si la fase 2 confirma que es entretenido |
 | **5 · ¿Crecer?** | Evaluar comunidad, ligas compartidas online, posible SaaS. | 💭 Futuro |
@@ -55,21 +55,29 @@ Tú decides la alineación, la táctica y los fichajes, ves jugar a tu equipo en
 - La IA ficha, se retiran veteranos, sube la cantera.
 - Historial y palmarés.
 
+**Tu carrera como DT**
+- Objetivos de la directiva según la fuerza de tu plantilla, confianza que sube y baja, despidos.
+- Reputación y ofertas de otros clubes (incluso de otras ligas); historial de tu carrera.
+- Clásicos y rivalidades (también personalizables por JSON), titulares y ruedas de prensa con promesas.
+
+**Partido (pulido)**
+- Repetición automática de goles, velocidad "⚡ Jugadas" que solo muestra lo importante, indicaciones rápidas.
+
 **Personalización y comunidad**
 - Pixel Art Studio: dibujo libre, galería, escudos y retratos.
 - Editor de equipos y jugadores (atributos, físico, apariencia).
 - Importación y exportación JSON: equipos, ligas, formatos y mundo completo, con validación y reporte de errores.
 
 **Calidad**
-- 37 pruebas automáticas (motor, formatos, temporadas, JSON, carrera).
+- 44 pruebas automáticas (motor, formatos, temporadas, JSON, carrera, DT, narrativa).
+- `npm run economy` simula 20 temporadas para revisar el balance.
 
 ## Próximos pasos (prioridad)
 
-1. **T-007 · Playtest del modo carrera.** Jugar y anotar. Decide todo lo demás.
-2. **T-008 · Objetivos de la directiva y despido.** Tensión de DT real.
-3. **T-009 · Carrera del DT y ofertas de trabajo.** Tu historia, no la del club.
-4. **T-018 · Pulido del motor de partido.** Emoción en cada partido.
-5. **T-010 · Balance de la economía.**
+1. **T-007 · Playtest.** Lo más importante ahora: jugar varias temporadas y anotar qué divierte y qué no. Las fases 3 y 4 dependen de esto.
+2. Según el playtest: segunda ronda de **T-018** (partido) o **T-019** (entrenamiento y vestuario).
+3. **T-012 / T-013 · Ascensos, descensos y varias competiciones**, si el modo carrera engancha y pide más mundo.
+4. Fase 3 (comunidad): **T-014, T-015, T-016**.
 
 El detalle de cada tarea está en [`docs/task/`](task/README.md).
 

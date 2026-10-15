@@ -7,6 +7,7 @@ import { createCompetition, currentMatchday, advance, allFixtures, groupTable, c
 import { overall } from './player.js'
 import { ensureEconomy, develop, youthIntake, shouldRetire, wageBill, generateFreeAgents, formatMoney, wageFor } from './economy.js'
 import { generateOffers, aiTransfers, ensureSquad, transferPlayer, WINDOW_MATCHDAYS } from './market.js'
+import { headlines, makePress, settlePromise } from './narrative.js'
 import { makeObjective, createManager, updateConfidence, shouldSackNow, sack, reviewSeason, jobOffers, currentStint, START_CONFIDENCE } from './manager.js'
 
 export { roundRobin } from './competition.js'
@@ -65,6 +66,7 @@ export function createCareer(world, leagueId, userTeamId) {
   }
   ensureManager(world, career)
   career.news.push({ round: 0, text: `🎯 Objetivo de la directiva: ${career.board.objective.text.toLowerCase()}.` })
+  career.press = makePress(world, career, nextUserFixture(career), `press-${career.competition.seed}-0`)
   return career
 }
 
@@ -176,13 +178,21 @@ export function completeRound(world, career) {
   }
   const stageBefore = comp.stage
   const userFixtures = currentFixtures(career).filter((m) => m.home === career.userTeamId || m.away === career.userTeamId)
-  if (career.board && !career.sacked) updateConfidence(career, userFixtures)
+  if (career.board && !career.sacked) {
+    updateConfidence(career, userFixtures)
+    const played = userFixtures.find((f) => f.result)
+    if (played) headlines(world, career, played)
+    settlePromise(world, career)
+  }
   developRound(world, career)
   const news = advance(comp, getTeam)
   for (const text of news) career.news.push({ round: career.matchdayNo, text })
   recoverTeams(world, comp.teamIds)
   career.matchdayNo++
   if (career.offers && !career.sacked) generateOffers(world, career, createRng(`offers-${comp.seed}-${career.matchdayNo}`))
+  if (career.board) {
+    career.press = !career.sacked && !comp.finished ? makePress(world, career, nextUserFixture(career), `press-${comp.seed}-${career.matchdayNo}`) : null
+  }
   if (career.board && shouldSackNow(career)) {
     sack(world, career, 'A mitad de temporada')
     career.jobOffers = jobOffers(world, career, createRng(`jobs-${comp.seed}-${career.matchdayNo}`), { sacked: true, midSeason: true })
@@ -376,6 +386,7 @@ export function startNextSeason(world, career) {
     career.review = null
     career.jobOffers = []
     career.news.push({ round: 0, text: `🎯 Objetivo de la directiva: ${career.board.objective.text.toLowerCase()}.` })
+    career.press = makePress(world, career, nextUserFixture(career), `press-${career.competition.seed}-0`)
   }
   career.news.push({ round: 0, text: `📅 Comienza ${career.name}. Presupuesto: ${formatMoney(user.finances.budget)}. El mercado sigue abierto ${WINDOW_MATCHDAYS} jornadas.` })
   generateOffers(world, career, createRng(`offers-${career.season}-start`))

@@ -1,9 +1,10 @@
 import { boardMood, prestige, regularPositions } from '../game/manager.js'
 import { teamStrength } from '../game/team.js'
+import { squadMood } from '../game/narrative.js'
 import { Crest, Ovr, Bar } from '../components/Pixel.jsx'
 
 // Board objective and confidence, shown on the Hub home tab.
-export function BoardPanel({ career }) {
+export function BoardPanel({ career, team }) {
   if (!career.board) return null
   const { objective, confidence } = career.board
   const mood = boardMood(confidence)
@@ -14,7 +15,7 @@ export function BoardPanel({ career }) {
       <div className="small">
         🎯 <b>{objective.text}</b>
       </div>
-      {pos && objective.target && (
+      {pos && objective.target && career.matchdayNo > 1 && (
         <div className="small muted" style={{ marginTop: 4 }}>
           Vas {pos}º · objetivo: {objective.target}º o mejor {pos <= objective.target ? '✅' : '⚠️'}
         </div>
@@ -26,6 +27,7 @@ export function BoardPanel({ career }) {
         </div>
         <b style={{ color: mood.color }}>{mood.label}</b>
       </div>
+      {team && <div className="small muted" style={{ marginTop: 4 }}>Vestuario: {squadMood(team).label}</div>}
     </div>
   )
 }
@@ -160,6 +162,27 @@ export function ManagerCard({ world, career }) {
       <p className="small muted" style={{ marginBottom: 0 }}>
         La reputación sube cuando cumples objetivos y ganas títulos. Con más reputación te llaman clubes más grandes (prestigio actual de tu club: {prestige(world, career.userTeamId)}).
       </p>
+    </div>
+  )
+}
+
+export function PressPanel({ press, onAnswer }) {
+  if (!press) return null
+  return (
+    <div className="panel" style={{ borderColor: 'var(--accent2)' }}>
+      <h3>🎙 Rueda de prensa</h3>
+      <p style={{ marginTop: 0 }}>{press.question}</p>
+      <div className="grid" style={{ gap: 6 }}>
+        {press.options.map((o, i) => (
+          <button key={i} className="press-option" onClick={() => onAnswer(i)}>
+            <span>{o.text}</span>
+            {o.hint && <span className="small muted">{o.hint}</span>}
+          </button>
+        ))}
+      </div>
+      <div className="small muted" style={{ marginTop: 6 }}>
+        Puedes no responder: la pregunta caduca tras el partido.
+      </div>
     </div>
   )
 }

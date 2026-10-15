@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createRng } from './rng.js'
 import { roundRobin, createCareer, completeRound, standings, nextUserFixture, applyResult, startNextSeason, takeJob } from './season.js'
 import { develop, playerValue } from './economy.js'
+import { rivalryName, answerPress } from './narrative.js'
 import { askingPrice, evaluateOffer, completePurchase, windowOpen } from './market.js'
 import { makePlayer, generateAttrs, overall } from './player.js'
 import { createCompetition, currentMatchday, advance, bracketOrder } from './competition.js'
@@ -476,5 +477,48 @@ describe('manager career', () => {
     expect(c.review).toBeTruthy()
     expect(typeof c.review.met).toBe('boolean')
     expect(c.history.at(-1).teamId).toBe('toluca')
+  })
+})
+
+describe('narrative', () => {
+  it('knows the derbies, including custom ones from JSON', () => {
+    const w = createWorld()
+    expect(rivalryName(w, 'cruz-azul', 'america')).toBe('Clásico Joven')
+    expect(rivalryName(w, 'america', 'guadalajara')).toBe('Clásico Nacional')
+    expect(rivalryName(w, 'necaxa', 'tijuana')).toBe(null)
+    w.teams.find((t) => t.id === 'necaxa').rivals = [{ id: 'tijuana', name: 'Clásico de prueba' }]
+    expect(rivalryName(w, 'tijuana', 'necaxa')).toBe('Clásico de prueba')
+  })
+
+  it('press conference answers change morale and promises are settled', () => {
+    const w = createWorld()
+    const c = createCareer(w, 'liga-mx-a26', 'america')
+    expect(c.press).toBeTruthy() // matchday 1 is the Clásico del Centro
+    const team = w.teams.find((t) => t.id === 'america')
+    const before = team.players[0].morale
+    answerPress(w, c, 1)
+    expect(team.players[0].morale).toBe(Math.min(2, before + 1))
+    expect(c.promise).toBeTruthy()
+    completeRound(w, c)
+    expect(c.promise).toBe(null)
+    expect(c.news.some((n) => n.text.includes('prometió') || n.text.includes('cumplió su palabra'))).toBe(true)
+  })
+
+  it('writes headlines during a season', () => {
+    const w = createWorld()
+    const c = createCareer(w, 'liga-mx-a26', 'america')
+    for (let g = 0; g < 80 && !c.finished; g++) completeRound(w, c)
+    expect(c.news.filter((n) => n.text.startsWith('📰')).length).toBeGreaterThan(2)
+  })
+
+  it('imports rivals from JSON', () => {
+    const w = createWorld()
+    const rep = importData(w, { type: 'pfm-team', team: { ...EXAMPLE_TEAM.team, id: 'rival-test', rivals: ['cruz-azul', { id: 'america', name: 'Derbi Pixel' }] } })
+    expect(rep.errors).toHaveLength(0)
+    const t = w.teams.find((x) => x.id === 'rival-test')
+    expect(t.rivals).toEqual([
+      { id: 'cruz-azul', name: 'Clásico' },
+      { id: 'america', name: 'Derbi Pixel' },
+    ])
   })
 })

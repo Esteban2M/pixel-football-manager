@@ -80,6 +80,21 @@ Each season runs on a competition. When it ends, **Next season** starts the foll
   - **Releasing** a player costs half of what is left on his contract.
 - **AI clubs** also trade between seasons. Each one strengthens its weakest starter by buying from other clubs or signing free agents. Every squad is kept playable, with at least 18 players and 2 goalkeepers.
 
+### You, the manager
+
+- **Board.** Each season the board sets a goal that fits your squad: fight for the title, top 4, reach the Liguilla, finish in position X or better, or avoid last place.
+  - **Confidence.** It moves with every result and with your position against the goal.
+  - **Sacking.** Fail badly and you are sacked, mid-season or at the end.
+- **Reputation and job offers.** Meeting goals and winning titles raises your reputation, and bigger clubs start calling.
+  - At the end of each season you can stay or move to a new club, even in another league.
+  - After a sacking, clubs from the same competition can hire you mid-season.
+  - The Club tab keeps your full career as a manager.
+- **Stories.**
+  - **Derbies:** Clásico Nacional, Joven, Regio, Tapatío and more. Add your own with `"rivals": ["america", { "id": "pumas", "name": "Clásico Capitalino" }]` in a team's JSON.
+  - **Headlines:** hat-tricks, thrashings, youngsters scoring, streaks, new leader.
+  - **Press conferences:** before derbies and during streaks. Your answers change squad morale or board confidence, or become promises the board remembers.
+- **Watching matches.** Goals are replayed automatically, and the **⚡ Jugadas** speed fast-forwards the dull moments. Quick-order buttons switch the team between defending and all-out attack.
+
 ## League formats
 
 A competition is a list of **stages**. Each stage is one of the following:
@@ -186,6 +201,8 @@ src/
     season.js       career on top of a competition, season rollover
     economy.js      value, wages, potential, growth/decline, youth, retirements
     market.js       offers, counter-offers, free agents, AI transfers
+    manager.js      board objectives, confidence, sackings, reputation, job offers
+    narrative.js    derbies, headlines, press conferences
     quicksim.js     fast statistical simulation + penalty shoot-outs
     io.js           JSON import / export
     engine/    match simulation: match.js (rules/physics), ai.js (decisions), geometry, commentary

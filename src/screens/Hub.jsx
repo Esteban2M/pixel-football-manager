@@ -12,7 +12,8 @@ import { overall } from '../game/player.js'
 import { windowOpen } from '../game/market.js'
 import MarketTab, { Money } from './MarketTab.jsx'
 import ClubTab from './ClubTab.jsx'
-import { BoardPanel, JobOffers, SackedPanel, ObjectiveVerdict } from './ManagerPanels.jsx'
+import { BoardPanel, JobOffers, SackedPanel, ObjectiveVerdict, PressPanel } from './ManagerPanels.jsx'
+import { answerPress, rivalryName } from '../game/narrative.js'
 
 // Zone colour for a table position; negative positions count from the bottom.
 function zoneFor(zones, pos, size) {
@@ -368,7 +369,10 @@ export default function Hub({ nav }) {
             ) : career.sacked ? (
               <SackedPanel world={world} career={career} onTake={(id) => update((w) => takeJob(w, w.career, id))} onSimulate={() => simulateRound(false)} onNew={() => nav('select')} />
             ) : fixture ? (
+              <>
+              {career.press && <PressPanel press={career.press} onAnswer={(i) => update((w) => answerPress(w, w.career, i))} />}
               <div className="panel">
+                {rivalryName(world, fixture.home, fixture.away) && <div className="chip" style={{ borderColor: 'var(--bad)', marginBottom: 8 }}>🔥 {rivalryName(world, fixture.home, fixture.away)}</div>}
                 <h2>
                   Próximo partido · {stage.name}
                   {fixture.leg ? ` · ${fixture.leg === 1 ? 'Ida' : fixture.leg === 2 ? 'Vuelta' : `Juego ${fixture.leg}`}` : ''}
@@ -404,6 +408,7 @@ export default function Hub({ nav }) {
                   </button>
                 </div>
               </div>
+              </>
             ) : (
               <div className="panel">
                 <h2>{status === 'out' ? 'Tu equipo ya no compite en esta fase' : 'Tu equipo descansa esta fecha'}</h2>
@@ -448,7 +453,7 @@ export default function Hub({ nav }) {
             </div>
           </div>
           <div className="grid" style={{ gap: 16, alignContent: 'start' }}>
-            {!career.sacked && !comp.finished && <BoardPanel career={career} />}
+            {!career.sacked && !comp.finished && <BoardPanel career={career} team={team} />}
             {lastTable && (
               <div className="panel">
                 <h3>

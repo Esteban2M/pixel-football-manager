@@ -142,6 +142,15 @@ export function normalizePlayer(raw, path, report, ctx) {
 
 // `base`: the team already in the world with the same id. Anything the document leaves out
 // (crest, kits, coach, tactics…) is kept from it, so a JSON can update only the squad.
+// Derbies: ["america", { "id": "pumas", "name": "Clásico Capitalino" }].
+function rivalsOf(raw, base) {
+  const list = Array.isArray(raw.rivals) ? raw.rivals : base?.rivals
+  if (!list?.length) return null
+  return list
+    .map((r) => (typeof r === 'string' ? { id: slugify(r), name: 'Clásico' } : r && r.id ? { id: slugify(r.id), name: String(r.name ?? 'Clásico') } : null))
+    .filter(Boolean)
+}
+
 export function normalizeTeam(raw, path, report, existingIds = new Set(), base = null) {
   if (!raw || typeof raw !== 'object') {
     report.error(`${path}: el equipo debe ser un objeto.`)
@@ -230,6 +239,7 @@ export function normalizeTeam(raw, path, report, existingIds = new Set(), base =
     custom: base ? !!base.custom : true,
     ...(raw.source || base?.source ? { source: String(raw.source ?? base.source) } : {}),
     ...(raw.confidence ? { confidence: String(raw.confidence) } : {}),
+    ...(rivalsOf(raw, base) ? { rivals: rivalsOf(raw, base) } : {}),
     kits,
     crest,
     tactics,
